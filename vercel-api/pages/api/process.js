@@ -41,8 +41,12 @@ export default async function handler(req, res) {
     console.log("Processing image...");
 
     // 1. OCR with Tesseract
-    // We create a worker, recognize, and terminate to be stateless
-    const worker = await createWorker('eng');
+    // OPTIMIZATION: Set cachePath to /tmp for Vercel (Read-only filesystem fix) & minimal lang data
+    const worker = await createWorker('eng', 1, {
+      cachePath: '/tmp',
+      logger: m => console.log(m), // Add logging to see progress in Vercel logs
+    });
+    
     const ret = await worker.recognize(image);
     const extractedText = ret.data.text;
     await worker.terminate();

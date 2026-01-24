@@ -1,4 +1,3 @@
-import { createWorker } from 'tesseract.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Initialize Gemini
@@ -7,7 +6,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '10mb', // Increased limit for OCR processing
+      sizeLimit: '4mb', // Use 4mb for Vercel Free tier limits on body size
     },
   },
 };
@@ -37,52 +36,41 @@ export default async function handler(req, res) {
     if (!image) {
       return res.status(400).json({ error: 'No image provided' });
     }
+
+    // Clean the Base64 string
+    const base64Data = image.replace(/^data:image\/(png|jpeg|webp|heic);base64,/, "");
+
+    // Using Gemini 3.0 Flash (Preview) as requested
+    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+
+    const prompt = `You are a strict exam grading machine.
+    1. Look at the image which tests multiple choice knowledge.
+    2. Identify the core question and the options.
+    3. Solve it accurately.
+    4. Output ONLY the single correct letter (A, B, C, or D).
     
-    console.log("Processing image...");
+    Do not output reasoning. Do not output text. JUST THE LETTER.`;
 
-    // 1. OCR with Tesseract
-    // OPTIMIZATION: Set cachePath to /tmp for Vercel (Read-only filesystem fix) & minimal lang data
-    const worker = await createWorker('eng', 1, {
-      cachePath: '/tmp',
-      logger: m => console.log(m), // Add logging to see progress in Vercel logs
-    });
-    
-    const ret = await worker.recognize(image);
-    const extractedText = ret.data.text;
-    await worker.terminate();
-    
-    console.log("Extracted Text:", extractedText.substring(0, 100) + "...");
+    const result = await model.generateContent([
+      prompt,
+      {
+        inlineData: {
+          data: base64Data,
+          mimeType: "image/png",
+        },
+      },
+    ]);
 
-    // 2. Gemini Analysis (TEXT ONLY)
-    // Using 1.5 Flash as requested
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-    const prompt = `You are an expert exam solver. 
-CRITICAL NOTE: The following text was extracted from an image of a Multiple Choice Question via OCR. It might have typos.
-
-1. Read the text carefully and reconstruct the question.
-2. Think step-by-step to determine the correct answer.
-3. Finally, provide the single letter answer.
-
-OCR TEXT:
-${extractedText}
-
-Your output format MUST be:
-Transcription: [Question and Options]
-Reasoning: [Your step-by-step thought process]
-FINAL ANSWER: [A/B/C/D]`;
-
-    // Only sending text now
-    const result = await model.generateContent(prompt);
-    
     const response = await result.response;
-    const answerText = response.text();
+    const text = response.text();
+    
+    // Clean up response just in case (remove markdown bolding like **A**)
+    const cleanAnswer = text.replace(/[^A-D]/gi, "").trim().toUpperCase().charAt(0);
 
-    console.log("Gemini Answer:", answerText);
+    console.log("Gemini Answer:", cleanAnswer);
 
     res.status(200).json({ 
-      text: extractedText,
-      geminiResponse: answerText 
+      geminiResponse: cleanAnswer 
     });
 
   } catch (error) {

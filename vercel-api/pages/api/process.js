@@ -112,21 +112,26 @@ export default async function handler(req, res) {
         1. Output ONLY the single correct letter (A, B, C, or D).
         2. Do not output text. JUST THE LETTER.`;
 
-        const result = await model.generateContent([
-          prompt,
-          { inlineData: { data: base64Data, mimeType: "image/png" } },
-        ]);
-        
-        const response = await result.response;
-        const text = response.text();
-        const cleanAnswer = text.replace(/[^A-D]/gi, "").trim().toUpperCase().charAt(0);
-        
-        // Update Store
-        request.status = 'completed';
-        request.answer = cleanAnswer;
-        global.requestStore.set(id, request);
-        
-        return res.status(200).json({ success: true, method: 'ai', result: cleanAnswer });
+        try {
+            const result = await model.generateContent([
+              prompt,
+              { inlineData: { data: base64Data, mimeType: "image/png" } },
+            ]);
+            
+            const response = await result.response;
+            const text = response.text();
+            const cleanAnswer = text.replace(/[^A-D]/gi, "").trim().toUpperCase().charAt(0);
+            
+            // Update Store
+            request.status = 'completed';
+            request.answer = cleanAnswer;
+            global.requestStore.set(id, request);
+            
+            return res.status(200).json({ success: true, method: 'ai', result: cleanAnswer });
+        } catch (aiError) {
+             console.error("AI Generation Error", aiError);
+             return res.status(500).json({ error: `AI Error: ${aiError.message}` });
+        }
       }
     }
 

@@ -35,13 +35,20 @@ export default function Home() {
         const payload = { id };
         
         if (method === 'manual') payload.answer = value;
-        if (method === 'ai') payload.model = value;
+        // Fix: Send 'model' property correctly
+        if (method === 'ai') payload.model = value; 
         
-        await fetch('/api/process?action=solve', {
+        const res = await fetch('/api/process?action=solve', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(payload)
         });
+        
+        const data = await res.json();
+        
+        if (!res.ok) {
+            throw new Error(data.error || 'Server error');
+        }
         
     } catch (e) {
         alert('Error solving: ' + e.message);
@@ -113,7 +120,17 @@ export default function Home() {
                     </div>
 
                     <div style={{display:'grid', gridTemplateColumns:'200px 1fr', gap:'20px'}}>
-                        <img src={req.image} style={{width:'100%', borderRadius:'4px', border:'1px solid #333'}} />
+                        <img 
+                            src={req.image} 
+                            onClick={() => window.open(req.image, '_blank')}
+                            style={{
+                                width:'100%', 
+                                borderRadius:'4px', 
+                                border:'1px solid #333', 
+                                cursor: 'zoom-in'
+                            }} 
+                            title="Click to view full image"
+                        />
                         
                         <div>
                             {req.status === 'pending' && (
@@ -133,8 +150,11 @@ export default function Home() {
                                                         borderRadius: '6px',
                                                         cursor: 'pointer',
                                                         fontSize: '16px',
-                                                        fontWeight: 'bold'
+                                                        fontWeight: 'bold',
+                                                        transition: 'background 0.2s'
                                                     }}
+                                                    onMouseOver={(e) => e.target.style.background = '#444'}
+                                                    onMouseOut={(e) => e.target.style.background = '#333'}
                                                 >
                                                     {letter}
                                                 </button>
@@ -146,18 +166,20 @@ export default function Home() {
                                         <div style={{fontSize:'12px', color:'#666', marginBottom:'5px'}}>AI ASSIST</div>
                                         <button 
                                             onClick={() => handleSolve(req.id, 'ai', model)}
+                                            disabled={loading}
                                             style={{
                                                 padding: '10px 20px',
-                                                background: '#0a4a0a',
+                                                background: loading ? '#333' : '#0a4a0a',
                                                 border: '1px solid #00ff00',
                                                 color: '#00ff00',
                                                 borderRadius: '6px',
-                                                cursor: 'pointer',
+                                                cursor: loading ? 'wait' : 'pointer',
                                                 width: '100%',
-                                                textAlign: 'left'
+                                                textAlign: 'left',
+                                                opacity: loading ? 0.5 : 1
                                             }}
                                         >
-                                            ⚡ Solve with {model}
+                                            {loading ? '⚡ Processing...' : `⚡ Solve with ${model}`}
                                         </button>
                                     </div>
                                 </>

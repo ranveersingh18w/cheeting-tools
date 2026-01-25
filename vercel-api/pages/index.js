@@ -1,123 +1,171 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 export default function Home() {
   const [logs, setLogs] = useState([]);
   const [model, setModel] = useState('gemini-1.5-flash');
-  const [apiKey, setApiKey] = useState('');
-  const [customPrompt, setCustomPrompt] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [selectedReq, setSelectedReq] = useState(null);
+
+  // Poll for requests
+  useEffect(() => {
+    const fetchRequests = async () => {
+      try {
+        const res = await fetch('/api/process?action=list');
+        const data = await res.json();
+        if (data.requests) {
+          // Only show pending or recently completed
+          setLogs(data.requests);
+        }
+      } catch (e) {
+        console.error("Fetch error", e);
+      }
+    };
+    
+    // Poll every 1 second
+    const interval = setInterval(fetchRequests, 1000);
+    return () => clearInterval(interval);
+  }, []);
   
-  // This function simulates receiving a request (in real app, this data would come from a DB or WebSocket)
-  // For this v1, we will build the UI structure for you to expand.
-  
+  const handleSolve = async (id, method, value) => {
+    setLoading(true);
+    try {
+        const payload = { id };
+        
+        if (method === 'manual') payload.answer = value;
+        if (method === 'ai') payload.model = value;
+        
+        await fetch('/api/process?action=solve', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        
+    } catch (e) {
+        alert('Error solving: ' + e.message);
+    }
+    setLoading(false);
+  };
+
   return (
     <div style={{ 
-      fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen, Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif',
+      fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif',
       background: '#0a0a0a',
       color: '#e0e0e0',
       minHeight: '100vh',
-      padding: '20px'
+      display: 'grid',
+      gridTemplateColumns: '300px 1fr',
+      gap: '0'
     }}>
-      <header style={{ 
-        borderBottom: '1px solid #333', 
-        paddingBottom: '20px', 
-        marginBottom: '20px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
-        <div>
-          <h1 style={{ margin: 0, color: '#00ff00', fontSize: '24px' }}>MCQ AI Dashboard 🟢</h1>
-          <p style={{ margin: '5px 0 0 0', fontSize: '14px', color: '#888' }}>Real-time Control Center</p>
-        </div>
-        <div style={{ textAlign: 'right', fontSize: '12px', color: '#666' }}>
-          Server: {typeof window !== 'undefined' ? window.location.hostname : 'Loading...'}<br/>
-          Status: <span style={{ color: '#00ff00' }}>Active</span>
-        </div>
-      </header>
-      
-      <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '20px' }}>
+      {/* SIDEBAR */}
+      <div style={{ background: '#111', borderRight: '1px solid #333', padding: '20px' }}>
+        <h1 style={{ margin: '0 0 20px 0', color: '#00ff00', fontSize: '20px' }}>MCQ Command</h1>
         
-        {/* Settings Panel */}
-        <div style={{ background: '#161616', padding: '20px', borderRadius: '12px', border: '1px solid #333' }}>
-          <h2 style={{ marginTop: 0, fontSize: '18px', borderBottom: '1px solid #333', paddingBottom: '10px' }}>⚙️ Configuration</h2>
-          
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', fontSize: '12px', marginBottom: '5px', color: '#aaa' }}>Active Model</label>
+        <div style={{ marginBottom: '20px' }}>
+            <label style={{display:'block', fontSize:'12px', color:'#666', marginBottom:'5px'}}>ACTIVE MODEL</label>
             <select 
               value={model} 
               onChange={(e) => setModel(e.target.value)}
-              style={{ width: '100%', padding: '8px', background: '#222', border: '1px solid #444', color: '#fff', borderRadius: '4px' }}
+              style={{ width: '100%', padding: '10px', background: '#222', border: '1px solid #444', color: 'white', borderRadius: '4px' }}
             >
-              <option value="gemini-1.5-flash">Gemini 1.5 Flash (Recommended)</option>
-              <option value="gemini-3-flash-preview">Gemini 3.0 Flash (Preview)</option>
-              <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+              <option value="gemini-1.5-flash">Gemini 1.5 Flash (Fast)</option>
+              <option value="gemini-3-flash-preview">Gemini 3.0 Flash (Exp)</option>
             </select>
-          </div>
-          
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', fontSize: '12px', marginBottom: '5px', color: '#aaa' }}>Custom Prompt Override</label>
-            <textarea 
-              rows="4"
-              placeholder="Default: You are a strict exam grading machine..."
-              value={customPrompt}
-              onChange={(e) => setCustomPrompt(e.target.value)}
-              style={{ width: '100%', padding: '8px', background: '#222', border: '1px solid #444', color: '#fff', borderRadius: '4px', resize: 'vertical', fontSize: '12px' }}
-            />
-          </div>
-          
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', fontSize: '12px', marginBottom: '5px', color: '#aaa' }}>API Key Override (Optional)</label>
-            <input 
-              type="password"
-              placeholder="Use Default Env Var"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              style={{ width: '100%', padding: '8px', background: '#222', border: '1px solid #444', color: '#fff', borderRadius: '4px' }}
-            />
-          </div>
-          
-          <button style={{ width: '100%', padding: '10px', background: '#00ff00', color: '#000', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>
-            Save Configuration
-          </button>
         </div>
         
-        {/* Live Requests Panel */}
-        <div style={{ background: '#161616', padding: '20px', borderRadius: '12px', border: '1px solid #333', height: 'calc(100vh - 140px)', overflowY: 'auto' }}>
-           <h2 style={{ marginTop: 0, fontSize: '18px', borderBottom: '1px solid #333', paddingBottom: '10px', display: 'flex', justifyContent: 'space-between' }}>
-             <span>📡 Live Requests</span>
-             <span style={{ fontSize: '12px', background: '#333', padding: '2px 8px', borderRadius: '10px' }}>Waiting for connection...</span>
-           </h2>
-           
-           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '20px', alignItems: 'center', justifyContent: 'center', color: '#444' }}>
-             <p>No active requests yet.</p>
-             <p style={{ fontSize: '12px' }}>Requests from your extension will appear here.</p>
-           </div>
-           
-           {/* Example of what a request item would look like (Hidden for now) */}
-           {/* 
-           <div style={{ background: '#222', borderRadius: '8px', padding: '15px', borderLeft: '4px solid #00ff00' }}>
-             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                <span style={{ fontWeight: 'bold', fontSize: '14px' }}>REQ-1024</span>
-                <span style={{ fontSize: '12px', color: '#888' }}>10:42:05 AM</span>
-             </div>
-             <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: '15px' }}>
-               <div style={{ background: '#000', height: '80px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#666' }}>Image Preview</div>
-               <div>
-                  <div style={{ marginBottom: '8px', fontSize: '13px' }}><strong>IP:</strong> 192.168.1.1</div>
-                  <div style={{ display: 'flex', gap: '5px' }}>
-                    <button style={{ padding: '5px 15px', background: '#444', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', border: '1px solid #555' }}>A</button>
-                    <button style={{ padding: '5px 15px', background: '#00ff00', border: 'none', color: 'black', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>B</button>
-                    <button style={{ padding: '5px 15px', background: '#444', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', border: '1px solid #555' }}>C</button>
-                    <button style={{ padding: '5px 15px', background: '#444', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', border: '1px solid #555' }}>D</button>
-                  </div>
-               </div>
-             </div>
-           </div> 
-           */}
-           
+        <div style={{ padding: '15px', background: '#222', borderRadius: '8px' }}>
+            <h3 style={{margin:'0 0 10px 0', fontSize:'14px'}}>Stats</h3>
+            <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px', marginBottom:'5px'}}>
+                <span>Pending</span>
+                <span style={{color:'orange'}}>{logs.filter(l => l.status === 'pending').length}</span>
+            </div>
+            <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px'}}>
+                <span>Completed</span>
+                <span style={{color:'#00ff00'}}>{logs.filter(l => l.status === 'completed').length}</span>
+            </div>
+        </div>
+      </div>
+
+      {/* WATCH FEED */}
+      <div style={{ padding: '20px', overflowY: 'auto' }}>
+        <h2 style={{marginTop:0}}>Live Feed</h2>
+        
+        {logs.length === 0 && <div style={{textAlign:'center', marginTop:'50px', color:'#444'}}>Waiting for requests from extension...</div>}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {logs.map(req => (
+                <div key={req.id} style={{ 
+                    background: '#161616', 
+                    borderRadius: '12px', 
+                    padding: '15px',
+                    border: req.status === 'pending' ? '1px solid #00ff00' : '1px solid #333',
+                    opacity: req.status === 'completed' ? 0.6 : 1
+                }}>
+                    <div style={{display:'flex', justifyContent:'space-between', marginBottom:'10px'}}>
+                        <span style={{fontSize:'12px', color:'#888'}}>ID: {req.id}</span>
+                        {req.status === 'pending' ? 
+                            <span style={{background:'orange', color:'black', padding:'2px 8px', borderRadius:'10px', fontSize:'11px', fontWeight:'bold'}}>NEEDS ATTENTION</span> 
+                            : 
+                            <span style={{background:'#00ff00', color:'black', padding:'2px 8px', borderRadius:'10px', fontSize:'11px', fontWeight:'bold'}}>SOLVED: {req.answer}</span>
+                        }
+                    </div>
+
+                    <div style={{display:'grid', gridTemplateColumns:'200px 1fr', gap:'20px'}}>
+                        <img src={req.image} style={{width:'100%', borderRadius:'4px', border:'1px solid #333'}} />
+                        
+                        <div>
+                            {req.status === 'pending' && (
+                                <>
+                                    <div style={{marginBottom:'15px'}}>
+                                        <div style={{fontSize:'12px', color:'#666', marginBottom:'5px'}}>QUICK ACTIONS</div>
+                                        <div style={{display:'flex', gap:'5px'}}>
+                                            {['A','B','C','D'].map(letter => (
+                                                <button 
+                                                    key={letter}
+                                                    onClick={() => handleSolve(req.id, 'manual', letter)}
+                                                    style={{
+                                                        padding: '10px 20px',
+                                                        background: '#333',
+                                                        border: '1px solid #555',
+                                                        color: 'white',
+                                                        borderRadius: '6px',
+                                                        cursor: 'pointer',
+                                                        fontSize: '16px',
+                                                        fontWeight: 'bold'
+                                                    }}
+                                                >
+                                                    {letter}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <div style={{fontSize:'12px', color:'#666', marginBottom:'5px'}}>AI ASSIST</div>
+                                        <button 
+                                            onClick={() => handleSolve(req.id, 'ai', model)}
+                                            style={{
+                                                padding: '10px 20px',
+                                                background: '#0a4a0a',
+                                                border: '1px solid #00ff00',
+                                                color: '#00ff00',
+                                                borderRadius: '6px',
+                                                cursor: 'pointer',
+                                                width: '100%',
+                                                textAlign: 'left'
+                                            }}
+                                        >
+                                            ⚡ Solve with {model}
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            ))}
         </div>
       </div>
     </div>

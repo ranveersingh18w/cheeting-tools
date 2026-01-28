@@ -1,0 +1,6 @@
+node_modules
+logs
+.env
+load_test_result.txt
+npm-debug.log
+.vercel

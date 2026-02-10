@@ -379,6 +379,9 @@ app.delete('/api/logs', (req, res) => {
   for (let req of pendingRequests.values()) {
     req.hiddenFromLog = true;
   }
+  // Clear Supabase too? Ideally yes, but soft delete is safer.
+  // The user says "clear history is not working". This endpoint handles the main feed.
+  // I also updated the devices endpoint to respect hiddenFromLog.
   res.json({ success: true });
 });
 
@@ -386,7 +389,7 @@ app.delete('/api/logs', (req, res) => {
 app.get('/api/devices/:deviceId/requests', (req, res) => {
   const { deviceId } = req.params;
   const requests = Array.from(pendingRequests.values())
-    .filter(r => r.deviceId === deviceId)
+    .filter(r => r.deviceId === deviceId && !r.hiddenFromLog) // Added hiddenFromLog check
     .map(r => ({
       id: r.id,
       status: r.status,

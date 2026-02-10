@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCQ AI</title>
+    <link rel="stylesheet" href="popup.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        .view-section {
+            display: block;
+        }
+
+        .view-section.hidden {
+            display: none;
+        }
+
+        .settings-icon {
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 4px;
+        }
+
+        .settings-icon:hover {
+            background: #27272a;
+        }
+
+        .settings-icon.active {
+            color: #10b981;
+            background: #27272a;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <div class="title-group"
+            style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+            <h1>MCQ AI</h1>
+            <span class="settings-icon" id="settingsToggle" title="Settings">⚙️</span>
+        </div>
+    </div>
+
+    <div class="separator"></div>
+
+    <div class="content">
+
+        <!-- MAIN VIEW (Home) -->
+        <div id="homeView" class="view-section">
+            <!-- Capture Section -->
+            <div class="section">
+                <div class="section-title">
+                    <span>📷</span> Capture
+                </div>
+                <div class="toggle-group">
+                    <label class="toggle-option">
+                        <input type="radio" name="captureMode" value="snippet">
+                        <span class="box">Snippet</span>
+                    </label>
+                    <label class="toggle-option">
+                        <input type="radio" name="captureMode" value="fullscreen" checked>
+                        <span class="box">Full Screen</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Automation Section -->
+            <div class="section">
+                <div class="section-title">
+                    <span>🤖</span> Automation
+                </div>
+                <div style="padding: 0 10px;">
+                    <label
+                        style="display:flex; align-items:center; gap: 10px; font-size: 12px; color: #fff; cursor: pointer;">
+                        <input type="checkbox" id="autoClickEnabled" style="accent-color: #10b981;">
+                        Enable Auto-Click Answer
+                    </label>
+                    <p style="font-size: 10px; color: #666; margin-top: 5px; margin-left: 22px;">
+                        Automatically clicks the best matching answer element.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SETTINGS VIEW (Hidden by default) -->
+        <div id="settingsView" class="view-section hidden">
+            <h2
+                style="font-size: 12px; color: #666; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 5px;">
+                Configuration</h2>
+
+            <!-- Appearance Section -->
+            <div class="section">
+                <div class="section-title">
+                    <span>🎨</span> Appearance
+                </div>
+                <div style="display: flex; gap: 15px; align-items: flex-end;">
+                    <div>
+                        <label style="font-size: 10px; color: #888; display: block; margin-bottom: 5px;">Color</label>
+                        <div class="color-input-wrapper">
+                            <input type="color" id="fontColor" value="#000000">
+                        </div>
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 10px; color: #888; display: block; margin-bottom: 5px;">Size
+                            (px)</label>
+                        <input type="number" id="fontSize" value="12" min="8" max="40">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activation Section -->
+            <div class="section">
+                <div class="section-title">
+                    <span>⚡</span> Activation
+                </div>
+                <div class="radio-group">
+                    <label class="radio-option">
+                        <input type="radio" name="activationMode" value="tripleclick" checked>
+                        <span class="radio-box">
+                            <span class="radio-mark"></span>
+                            Triple Click
+                        </span>
+                    </label>
+                    <label class="radio-option">
+                        <input type="radio" name="activationMode" value="shortcut">
+                        <span class="radio-box">
+                            <span class="radio-mark"></span>
+                            Ctrl+Shift+A
+                        </span>
+                    </label>
+                    <label class="radio-option">
+                        <input type="radio" name="activationMode" value="manual">
+                        <span class="radio-box">
+                            <span class="radio-mark"></span>
+                            Manual
+                        </span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="footer">
+        <button id="saveBtn" class="btn btn-save" style="display:none;">
+            <!-- Auto-save logic makes this visual mainly, can be hidden or keep as indicator -->
+            <span>💾</span> Save
+        </button>
+        <button id="startBtn" class="btn btn-start">
+            <span>🚀</span> Start
+        </button>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>

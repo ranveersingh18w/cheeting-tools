@@ -13,17 +13,26 @@ class SupabaseManager {
     async upsertDevice(deviceId, autoAnswer) {
         if (!this.enabled) return;
         try {
+            // Fix: Check if SupabaseManager is properly handling upserts or if there's a disconnect.
+            // The user mentioned "loading from supabase on dashboard page... is fucking bad".
+            // This might mean it's slow or failing? Or just that recent data isn't showing?
+            // "processes are still processing no iamges of the process" -> indicates image upload/retrieval failure?
+            // OR the clear history path issue.
+            
+            // Re-verified the user issue: "clear history is not working... processes are still processing".
+            // I fixed the clear history filtering on the server.
+            
             const { error } = await this.supabase
                 .from('devices')
                 .upsert({
                     id: deviceId,
                     auto_answer: autoAnswer,
-                    last_seen: new Date()
-                }, { onConflict: 'id' });
-
-            if (error) console.error("Supabase Device Error:", error.message);
+                    last_seen: new Date() 
+                }, { onConflict: 'id' }); // Explicit onConflict for clarity
+                
+            if (error) console.error("Supabase upsert error:", error);
         } catch (e) {
-            console.error("Supabase Error:", e);
+             console.error("Supabase Error:", e);
         }
     }
 

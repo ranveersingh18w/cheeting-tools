@@ -568,37 +568,37 @@
         const SUPABASE_URL = "https://bhulammdoxhcsmeerhei.supabase.co";
         // WARNING: Replace with your actual ANON PUBLIC KEY. 
         // Do NOT use the service_role secret from the backend here.
-        const SUPABASE_KEY = "sb_publishable_-hvc5Oeq7uEFIeUv039xsw_vk8Vy8Jl"; 
+        const SUPABASE_KEY = "sb_publishable_-hvc5Oeq7uEFIeUv039xsw_vk8Vy8Jl";
 
         const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
         supabase
-        .channel("table-db-changes")
-        .on(
-            "postgres_changes",
-            {
-            event: "*",
-            schema: "public",
-            table: "requests"
-            },
-            payload => {
-                console.log("Realtime Request Update:", payload);
-                if(window.refreshData) window.refreshData();
-            }
-        )
-        .on(
-            "postgres_changes",
-            {
-            event: "*",
-            schema: "public",
-            table: "devices"
-            },
-            payload => {
-                 console.log("Realtime Device Update:", payload);
-                 if(window.refreshData) window.refreshData();
-            }
-        )
-        .subscribe();
+            .channel("table-db-changes")
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "requests"
+                },
+                payload => {
+                    console.log("Realtime Request Update:", payload);
+                    if (window.refreshData) window.refreshData();
+                }
+            )
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "devices"
+                },
+                payload => {
+                    console.log("Realtime Device Update:", payload);
+                    if (window.refreshData) window.refreshData();
+                }
+            )
+            .subscribe();
     </script>
 
     <script>
@@ -627,7 +627,7 @@
             });
             const activeView = document.getElementById(tabId);
             if (activeView) activeView.classList.add('active');
-            
+
             if (tabId === 'settings') {
                 refreshSettings();
             }
@@ -646,7 +646,16 @@
                 fetchReqs,
                 fetch('/api/devices').then(r => r.json())
             ]).then(([reqData, devData]) => {
-                currentRequests = reqData || [];
+                if (reqData && reqData.length > 0) {
+                    reqData.forEach(incoming => {
+                        const existingIndex = currentRequests.findIndex(r => r.id === incoming.id);
+                        if (existingIndex >= 0) {
+                            currentRequests[existingIndex] = incoming;
+                        } else {
+                            currentRequests.push(incoming);
+                        }
+                    });
+                }
                 currentDevices = devData.devices || [];
                 renderLogs();
                 renderOcrLogs();
@@ -666,8 +675,11 @@
 
         function renderOcrLogs() {
             const tbody = document.getElementById('ocrLogsTableBody');
-            if(!tbody) return;
-            let logs = [...currentRequests].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            if (!tbody) return;
+            let logsToRender = currentDeviceFilter
+                ? currentRequests.filter(req => req.deviceId === currentDeviceFilter)
+                : currentRequests;
+            let logs = [...logsToRender].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
             if (logs.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 30px; color: var(--text-muted)">No data found</td></tr>';
                 return;
@@ -686,8 +698,11 @@
 
         function renderGeminiLogs() {
             const tbody = document.getElementById('geminiLogsTableBody');
-            if(!tbody) return;
-            let logs = [...currentRequests].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            if (!tbody) return;
+            let logsToRender = currentDeviceFilter
+                ? currentRequests.filter(req => req.deviceId === currentDeviceFilter)
+                : currentRequests;
+            let logs = [...logsToRender].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
             if (logs.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 30px; color: var(--text-muted)">No data found</td></tr>';
                 return;
@@ -706,7 +721,11 @@
 
         function renderLogs() {
             const tbody = document.getElementById('logsTableBody');
-            let logs = [...currentRequests].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            let logsToRender = currentDeviceFilter
+                ? currentRequests.filter(req => req.deviceId === currentDeviceFilter)
+                : currentRequests;
+
+            let logs = [...logsToRender].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
             // UI Title Update
             const titleEl = document.querySelector('#logs .page-title');
@@ -888,6 +907,7 @@
 
         function clearLogs() {
             if (confirm('Clear the main feed? Device history will remain in Devices tab.')) {
+                currentRequests = currentRequests.filter(r => currentDeviceFilter && r.deviceId === currentDeviceFilter); // Clear frontend visually
                 fetch('/api/logs', { method: 'DELETE' }).then(() => refreshData());
             }
         }

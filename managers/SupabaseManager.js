@@ -32,7 +32,12 @@ class SupabaseManager {
                 
             if (error) console.error("Supabase upsert error:", error);
         } catch (e) {
-             console.error("Supabase Error:", e);
+             // Suppress annoying connection timeout stacks, just modify one line
+             if (e.message && e.message.includes('fetch failed')) {
+                 console.warn("⚠️ Supabase Connection Failed (Network/Timeout) - Skipping sync.");
+             } else {
+                 console.error("Supabase Error:", e);
+             }
         }
     }
 

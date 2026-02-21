@@ -1,0 +1,35 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "zip_extension",
+			"type": "shell",
+			"command": "Compress-Archive -Path extension/* -DestinationPath extension.zip -Force",
+			"args": [
+				"extension.zip",
+				"extension/*"
+			],
+			"group": "build"
+		},
+		{
+			"label": "zip_extension_again",
+			"type": "shell",
+			"command": "Compress-Archive -Path extension/* -DestinationPath extension.zip -Force",
+			"args": [
+				"extension.zip",
+				"extension/*"
+			],
+			"group": "build"
+		},
+		{
+			"label": "zip_extension_fix",
+			"type": "shell",
+			"command": "Compress-Archive -Path extension/* -DestinationPath extension.zip -Force",
+			"args": [
+				"extension.zip",
+				"extension/*"
+			],
+			"group": "build"
+		}
+	]
+}

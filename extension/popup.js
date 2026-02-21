@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', async () => {
   // Load saved settings
-  const result = await chrome.storage.local.get(['captureMode', 'activationMode', 'fontColor', 'fontSize', 'autoClickEnabled']);
+  const result = await chrome.storage.local.get(['captureMode', 'activationMode', 'fontColor', 'fontSize', 'autoClickEnabled', 'answerDuration']);
 
   if (result.captureMode) {
     const radio = document.querySelector(`input[name="captureMode"][value="${result.captureMode}"]`);
@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (result.fontColor) document.getElementById('fontColor').value = result.fontColor;
   if (result.fontSize) document.getElementById('fontSize').value = result.fontSize;
+  if (result.answerDuration) document.getElementById('answerDuration').value = result.answerDuration;
 
   // Auto Click Load
   if (result.autoClickEnabled !== undefined) {
@@ -30,6 +31,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const activationMode = document.querySelector('input[name="activationMode"]:checked').value;
     const fontColor = document.getElementById('fontColor').value;
     const fontSize = document.getElementById('fontSize').value;
+    const answerDuration = document.getElementById('answerDuration').value;
     const autoClickEnabled = document.getElementById('autoClickEnabled').checked;
 
     await chrome.storage.local.set({
@@ -37,6 +39,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       activationMode,
       fontColor,
       fontSize,
+      answerDuration,
       autoClickEnabled
     });
 
@@ -70,7 +73,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Start Button
-  document.getElementById('startBtn').addEventListener('click', async () => {
+  const startBtn = document.getElementById('startBtn');
+  
+  // Logic: Only show start button if Manual Mode is selected?
+  // User request: "no need of start button only when in the settings manual is on"
+  // This implies we hide it normally?
+  
+  function updateStartButtonVisibility() {
+      const mode = document.querySelector('input[name="activationMode"]:checked').value;
+      if (mode === 'manual') {
+          startBtn.style.display = 'block';
+      } else {
+          startBtn.style.display = 'none';
+      }
+  }
+
+  // Initial Check
+  setTimeout(updateStartButtonVisibility, 100); // Wait for storage load
+
+  // Listen for changes
+  document.querySelectorAll('input[name="activationMode"]').forEach(el => {
+      el.addEventListener('change', updateStartButtonVisibility);
+  });
+
+  startBtn.addEventListener('click', async () => {
     const captureMode = document.querySelector('input[name="captureMode"]:checked').value;
 
     // Changes: Always trigger capture regardless of mode when Start is clicked

@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Cheeting Tools — Test Zone</title>
+  <link rel="stylesheet" href="/brand.css">
+  <style>
+      .mcq-card { background: #1f1f23; padding: 30px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 30px; }
+      .question { font-size: 20px; font-weight: 600; margin-bottom: 20px; }
+      .options { display: flex; flex-direction: column; gap: 10px; }
+      .option { padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; cursor: pointer; transition: 0.2s; border: 1px solid transparent; }
+      .option:hover { background: rgba(255,255,255,0.1); }
+      .option.selected { border-color: #6C63FF; background: rgba(108,99,255,0.1); }
+      
+      /* Hidden correct answers for testing "The Hand" */
+      .secret { display: none; }
+  </style>
+</head>
+<body>
+  <nav class="container" style="padding: 20px 0;">
+      <a href="/" class="btn">← Back Home</a>
+  </nav>
+
+  <main class="container">
+      <h1 style="text-align: center; margin-bottom: 20px;">MCQ Test Zone</h1>
+      <p style="text-align: center; color: #a1a1aa; margin-bottom: 60px;">Triple-click any question text to test the extension!</p>
+
+      <!-- Q1 -->
+      <div class="mcq-card">
+          <div class="question">1. What is the capital of France?</div>
+          <div class="options">
+              <div class="option">A. London</div>
+              <div class="option">B. Berlin</div>
+              <div class="option">C. Paris</div>
+              <div class="option">D. Madrid</div>
+          </div>
+          <!-- Answer is C -->
+      </div>
+
+      <!-- Q2 -->
+      <div class="mcq-card">
+          <div class="question">2. Which planet is known as the Red Planet?</div>
+          <div class="options">
+              <div class="option">A. Mars</div>
+              <div class="option">B. Jupiter</div>
+              <div class="option">C. Venus</div>
+              <div class="option">D. Saturn</div>
+          </div>
+          <!-- Answer is A -->
+      </div>
+
+      <!-- Q3 -->
+      <div class="mcq-card">
+          <div class="question">3. What is 2 + 2 * 4?</div>
+          <div class="options">
+              <div class="option">A. 16</div>
+              <div class="option">B. 10</div>
+              <div class="option">C. 8</div>
+              <div class="option">D. 12</div>
+          </div>
+          <!-- Answer is B -->
+      </div>
+      
+      <!-- Q4 Image Based (Placeholder) -->
+      <div class="mcq-card">
+          <div class="question">4. Which code snippet correctly declares a variable in JavaScript?</div>
+          <div class="options">
+              <div class="option">A. var x: 10;</div>
+              <div class="option">B. let x = 10;</div>
+              <div class="option">C. int x = 10;</div>
+              <div class="option">D. dim x = 10</div>
+          </div>
+          <!-- Answer is B -->
+      </div>
+
+  </main>
+  
+  <script>
+      // Simple selection logic for visuals
+      document.querySelectorAll('.option').forEach(opt => {
+          opt.addEventListener('click', function() {
+              this.parentElement.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
+              this.classList.add('selected');
+          });
+      });
+  </script>
+</body>
+</html>

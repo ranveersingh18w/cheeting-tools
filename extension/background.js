@@ -14,10 +14,13 @@ chrome.commands.onCommand.addListener(async (command) => {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log(`📩 Message received:`, request);
     if (request.action === 'capture') {
+        // Trigger capture flow asynchronously, but respond to the sender immediately
+        // to prevent "message channel closed" errors due to long timeouts (user selection, upload, etc).
         triggerCapture(request.captureMode || 'fullscreen')
-            .then(() => sendResponse({ success: true, message: "Capture started" }))
-            .catch((err) => sendResponse({ success: false, error: err.toString() }));
-        return true; // Indicates we will respond asynchronously
+            .catch((err) => console.error("Capture process error:", err));
+            
+        sendResponse({ success: true, message: "Capture sequence initiated" });
+        return false; // Respond synchronously (channel closes immediately after sendResponse)
     }
     // sendResponse({ success: false, error: "Unknown action" }); // Optional: handle unknown actions
     return false;
@@ -82,22 +85,7 @@ async function triggerCapture(mode) {
             dataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'png' });
         } else {
             console.log("Snippet mode initiated - implementing as area selection");
-            // Implement simple area selection using chrome.tabs.captureVisibleTab (or a library if available)
-            // For now, let's just do fullscreen as fallback, but log it properly.
-            // Ideally, you would inject a content script to handle area selection and then crop the image. 
-            // Since we can't easily add a new library here without user interaction, 
-            // we will stick to the existing behavior but ensure it works. 
-            // User reported snippet tool is not working. The code below was:
-            // console.log("Snippet mode initiated - implementing as fullscreen for prototype");
-            // dataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'png' });
             
-            // Actually, to support snippet properly without a library involves:
-            // 1. Inject content script to draw a selection box.
-            // 2. Return coordinates relative to viewport.
-            // 3. Capture visible tab.
-            // 4. Crop image using canvas.
-            
-            // Let's try to inject the capture area logic if mode is 'snippet'
             if (mode === 'snippet') {
                  try {
                     // Send message to content script to start selection
@@ -105,22 +93,35 @@ async function triggerCapture(mode) {
                     
                     if (response && (response.left !== undefined)) {
                          // We got coordinates!
-                         // 1. Capture full screen
                          console.log("Got coords:", response);
+                         
+                         // Capture full screen first
                          const rawDataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'png' });
                          
-                         // 2. Crop it
+                         // CROP IT using the Coords
                          dataUrl = await cropImage(rawDataUrl, response);
+                         
+                    } else if (response === null) {
+                         // User cancelled or selection too small
+                         console.log("Snippet selection cancelled by user.");
+                         // FIX: Use tab.id because notifyTabId is not defined in this scope
+                         // REMOVED: No notification on cancellation requested by user
+                         // if (tab && tab.id) chrome.tabs.sendMessage(tab.id, { action: 'displayAnswer', answer: 'Selection Cancelled', styles: { color: 'orange' }, isFinal: false });
+                         return; // ABORT CAPTURE
                     } else if (response && response.dataUrl) {
                         dataUrl = response.dataUrl;
                     } else {
-                        // Fallback
-                         console.warn("Snippet selection cancelled or failed [no coords], falling back to fullscreen");
+                         // Fallback - Only valid if response was undefined/weird, but NOT explicit cancellation
+                         console.warn("Snippet selection failed (no coords), falling back to fullscreen");
                          dataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'png' });
                     }
                  } catch (e) {
-                     console.warn("Could not invoke snippet on content script, maybe not loaded?", e);
-                     dataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'png' });
+                     console.warn("Could not invoke snippet (content script error)", e);
+                     // If content script is missing (e.g. chrome:// page), fallback is safer, 
+                     // OR warn user. Content script won't run on restricted pages.
+                     // FIX: Use tab.id
+                     if (tab && tab.id) chrome.tabs.sendMessage(tab.id, { action: 'displayAnswer', answer: 'Cannot snippet this page', styles: { color: 'red' }, isFinal: false });
+                     return;
                  }
             } else {
                  dataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'png' });
@@ -137,7 +138,8 @@ async function triggerCapture(mode) {
         console.error('❌ Capture failed:', err);
         // Report error back to tab via messaging if possible
         if (tab && tab.id) {
-            chrome.tabs.sendMessage(tab.id, { action: 'displayAnswer', answer: 'Error: ' + err.message, styles: { color: 'red' }, isFinal: false });
+             // ERROR: Send as FINAL so it shows even if auto-click is on
+            chrome.tabs.sendMessage(tab.id, { action: 'displayAnswer', answer: 'Capture Error: ' + err.message, styles: { color: 'red' }, isFinal: true });
         }
         throw err; // Re-throw so onMessage catches it
     }
@@ -150,8 +152,10 @@ async function uploadImage(dataUrl) {
         const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tabs && tabs[0]) notifyTabId = tabs[0].id;
 
-        // STATUS UPDATE
+        // STATUS UPDATE - REMOVE for "Don't show extra text" request
+        /*
         if (notifyTabId) chrome.tabs.sendMessage(notifyTabId, { action: 'displayAnswer', answer: '📤 Uploading...', styles: { color: '#3b82f6' }, isFinal: false }); // Blue
+        */
 
         // Get Device ID (create if not exists)
         let { deviceId, fontColor, fontSize, autoClickEnabled } = await chrome.storage.local.get(['deviceId', 'fontColor', 'fontSize', 'autoClickEnabled']);
@@ -172,7 +176,11 @@ async function uploadImage(dataUrl) {
 
         formData.append('image', blob, 'screenshot.png');
 
-        const API_URL = 'https://mcq-server-f3ypmat03-ranveers-projects-0cec94ed.vercel.app'; // Vercel Updated 
+        // UPDATED for Vercel Production
+        // Using the newly deployed URL
+        const API_URL = 'https://cheeting-tools-9aa74fvor-ranveers-projects-0cec94ed.vercel.app'; 
+        // const API_URL = 'http://127.0.0.1:3000'; 
+        
         console.log(`🚀 Sending POST request to ${API_URL}/api/upload-image`);
 
         const response = await fetch(`${API_URL}/api/upload-image`, {
@@ -202,8 +210,10 @@ async function uploadImage(dataUrl) {
         if (data.success) {
             if (data.status === 'pending') {
                 console.log(`⏳ Request pending approval (ReqID: ${data.requestId}). Starting poll...`);
-                // STATUS UPDATE
+                // STATUS UPDATE - REMOVE for "Don't show extra text" request
+                /*
                 if (notifyTabId) chrome.tabs.sendMessage(notifyTabId, { action: 'displayAnswer', answer: '⏳ Analyzed. Thinking...', styles: { color: '#fbbf24' }, isFinal: false }); // Yellow
+                */
                 pollForAnswer(data.requestId, fontColor, fontSize);
             } else if (data.status === 'completed') {
                 console.log(`✅ Immediate Result: ${data.answer}`);
@@ -211,13 +221,20 @@ async function uploadImage(dataUrl) {
             }
         } else {
             console.error('❌ Server returned error:', data);
-            if (notifyTabId) chrome.tabs.sendMessage(notifyTabId, { action: 'displayAnswer', answer: 'Server Error: ' + (data.error || 'Unknown'), styles: { color: 'red' }, isFinal: false });
+            // Don't show server error to overlay
+            if (notifyTabId) chrome.tabs.sendMessage(notifyTabId, { action: 'displayAnswer', answer: 'Server Error: ' + (data.error || 'Unknown'), styles: { color: 'red' }, isFinal: true });
         }
 
     } catch (err) {
         console.error('❌ Upload failed (Network/Server Error):', err);
-        if (notifyTabId) chrome.tabs.sendMessage(notifyTabId, { action: 'displayAnswer', answer: 'Network/Upload Error: ' + err.message, styles: { color: 'red' }, isFinal: false });
-        throw err; // Propagate error
+        // Suppress on-screen error display as requested
+        let errorMsg = 'Network/Upload Error: ' + err.message;
+        if (err.message.includes('Failed to fetch')) {
+            errorMsg = "Error: Server OFF or Blocked. Checks:\n1. Is 'server.js' running (Port 3000)?\n2. Allow '127.0.0.1' in AdBlock.";
+        }
+        if (notifyTabId) chrome.tabs.sendMessage(notifyTabId, { action: 'displayAnswer', answer: errorMsg, styles: { color: 'red', fontSize: '18px', fontWeight: 'bold' }, isFinal: true });
+
+        throw err; // Propagate error for console logging
     }
 }
 
@@ -229,10 +246,16 @@ async function pollForAnswer(requestId, fontColor, fontSize) {
     if (currentPollInterval) clearInterval(currentPollInterval);
 
     currentPollInterval = setInterval(async () => {
+        // CHECK IF TAB IS STILL ALIVE/LISTENING
+        // If content script is dead/reloaded, we can't show answer.
+        // We will try to get the active tab again just in case the user switched tabs 
+        // (though arguably we should only notify the original tab, but focusing on user experience: just notify active)
+        
         attempts++;
         try {
             // console.log(`🔄 Polling attempt ${attempts}/${MAX_ATTEMPTS} for ${requestId}...`);
-            const API_URL = 'https://mcq-server-f3ypmat03-ranveers-projects-0cec94ed.vercel.app';
+            const API_URL = 'https://cheeting-tools-9aa74fvor-ranveers-projects-0cec94ed.vercel.app';
+            // const API_URL = 'http://127.0.0.1:3000';
             const response = await fetch(`${API_URL}/api/status/${requestId}`);
             const data = await response.json();
 
@@ -240,40 +263,79 @@ async function pollForAnswer(requestId, fontColor, fontSize) {
                 console.log(`✅ Poll Success! Answer received: ${data.answer}`);
                 clearInterval(currentPollInterval);
                 currentPollInterval = null;
+                
+                // IMPORTANT: Re-query the active tab because the original 'notifyTabId' might be stale 
+                // or the user navigated. We want to show the answer on the CURRENT active tab if possible.
+                // Or at least try to find a valid target.
+                
+                // Pass font info again just in case
+                 let { fontColor, fontSize } = await chrome.storage.local.get(['fontColor', 'fontSize']);
+                 
                 displayAnswer(data.answer, fontColor, fontSize, true); // FINAL
             } else if (data.status === 'cancelled' || data.status === 'error') {
                 console.warn(`🛑 Poll stopped. Status: ${data.status}`);
                 clearInterval(currentPollInterval);
                 currentPollInterval = null;
-                displayAnswer("Error: " + data.status, 'red', 12, false);
+                // Suppress on-screen error
+                displayAnswer("Error: " + data.status, 'red', 12, true); // FINAL because it's an error
             } else if (attempts >= MAX_ATTEMPTS) {
                 console.error("⏰ Poll timeout.");
                 clearInterval(currentPollInterval);
                 currentPollInterval = null;
-                displayAnswer("Timeout", 'red', 12, false);
+                // Suppress on-screen timeout
+                displayAnswer("Timeout", 'red', 12, true); // FINAL
             }
         } catch (e) {
             console.error("❌ Polling network error:", e);
-            clearInterval(currentPollInterval);
-            currentPollInterval = null;
+            // Don't stop polling on transient network errors immediately, unless it's persistent
+            if (attempts > 5 && attempts % 5 === 0) {
+                 console.warn("⚠️ Repeated network errors...");
+            }
+            if (attempts >= MAX_ATTEMPTS) {
+                 clearInterval(currentPollInterval);
+                 // Suppress on-screen network error
+                 displayAnswer("Network Err", 'red', 12, true);
+            }
         }
     }, 2000); // Check every 2 seconds
 }
 
 async function displayAnswer(answer, fontColor, fontSize, isFinal = false) {
     console.log(`📨 Sending answer to tab: ${answer} (Final: ${isFinal})`);
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab && tab.id) {
-        chrome.tabs.sendMessage(tab.id, {
-            action: 'displayAnswer',
-            answer: answer || '?',
-            isFinal: isFinal, // Pass the flag
-            styles: {
-                color: fontColor || '#000000',
-                fontSize: fontSize || 12
-            }
-        }).catch((err) => {
-            console.error("❌ Failed to send message to tab (content script might not be loaded):", err);
+    
+    let sentToTab = false;
+
+    // 1. Try sending to Active Tab
+    try {
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tabs && tabs[0]) {
+            await chrome.tabs.sendMessage(tabs[0].id, { 
+                action: 'displayAnswer', 
+                answer, 
+                styles: { color: fontColor, fontSize }, 
+                isFinal 
+            });
+            sentToTab = true;
+            console.log("✅ Message sent to active tab.");
+        } else {
+            console.warn("⚠️ No active tab found to receive answer.");
+        }
+    } catch (err) {
+        console.error("❌ Failed to send to tab:", err);
+    }
+
+    // 2. Backup: If Final Answer AND failed to send to tab (or just as extra safety?), use Notifications
+    // Only for Final Answer or Error to reduce noise
+    if (isFinal && !sentToTab) {
+        // Strip styling chars if any
+        const cleanAnswer = answer.replace('Error: ', '');
+        
+        chrome.notifications.create({
+            type: 'basic',
+            iconUrl: 'icons/icon128.png', 
+            title: 'MCQ Answer',
+            message: cleanAnswer,
+            priority: 2
         });
     }
 }

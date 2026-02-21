@@ -366,12 +366,23 @@
     <div class="sidebar">
         <div class="logo">⚡ MCQ/CMD</div>
         <div class="nav-item active" onclick="switchTab('logs')">📜 Logs Feed</div>
+        <div class="nav-item" onclick="switchTab('ocr_logs')">👁️ OCR Space</div>
+        <div class="nav-item" onclick="switchTab('gemini_logs')">🧠 Gemini AI</div>
         <div class="nav-item" onclick="switchTab('devices')">📱 Devices</div>
-        <div class="nav-item" onclick="switchTab('errors')">⚠️ Errors</div>
+        <div class="nav-item" onclick="switchTab('settings')">⚙️ Settings</div>
     </div>
 
     <!-- Main -->
     <div class="main">
+        <!-- HEADER WITH GLOBAL AUTO -->
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 20px; align-items: center; gap: 10px;">
+            <span style="font-weight: 600; color: var(--text-muted);">Global Auto-AI:</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="globalAutoToggle" onchange="toggleGlobalAuto(this.checked)">
+                <span class="slider"></span>
+            </label>
+        </div>
+
         <!-- LOGS VIEW -->
         <div id="logs" class="view active">
             <div class="header">
@@ -392,6 +403,48 @@
                     </thead>
                     <tbody id="logsTableBody">
                         <!-- Data -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- OCR LOGS VIEW -->
+        <div id="ocr_logs" class="view">
+            <div class="header">
+                <div class="page-title">OCR Space Parsing Logs</div>
+                <button class="btn btn-primary btn-sm" onclick="refreshData()">Refresh</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Req ID</th>
+                            <th>Time</th>
+                            <th>OCR Extracted Text</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ocrLogsTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- GEMINI LOGS VIEW -->
+        <div id="gemini_logs" class="view">
+            <div class="header">
+                <div class="page-title">Gemini AI Engine Logs</div>
+                <button class="btn btn-primary btn-sm" onclick="refreshData()">Refresh</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Req ID</th>
+                            <th>Time</th>
+                            <th style="min-width: 300px;">Final Output</th>
+                        </tr>
+                    </thead>
+                    <tbody id="geminiLogsTableBody">
                     </tbody>
                 </table>
             </div>
@@ -441,6 +494,44 @@
                 </table>
             </div>
         </div>
+
+        <!-- SETTINGS VIEW -->
+        <div id="settings" class="view">
+            <div class="header">
+                <div class="page-title">API Key Management</div>
+                <div>
+                    <button class="btn btn-warning btn-sm" onclick="forceSync()">Force DB Sync</button>
+                    <button class="btn btn-primary btn-sm" onclick="refreshSettings()">Refresh List</button>
+                </div>
+            </div>
+
+            <div
+                style="margin-bottom: 30px; background: var(--bg-panel); padding: 20px; border-radius: 8px; border: 1px solid var(--border);">
+                <h3 style="margin-bottom: 15px;">Add New API Key</h3>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="newApiKeyInput" placeholder="Paste Gemini API Key here..."
+                        style="flex: 1; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-dark); color: white;">
+                    <button class="btn btn-primary" onclick="addApiKey()">Add Key</button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Key Preview</th>
+                            <th>Tiers Active</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="settingsTableBody"></tbody>
+                </table>
+            </div>
+            <div style="margin-top: 20px; color: var(--text-muted); font-size: 0.9rem;">
+                * Logic: Tier 1 of ALL keys is tried first. Then Tier 2 of ALL keys. Then Tier 3.
+            </div>
+        </div>
     </div>
 
     <!-- Approval Modal -->
@@ -471,6 +562,45 @@
         </div>
     </div>
 
+    <script type="module">
+        import { createClient } from "https://esm.sh/@supabase/supabase-js";
+
+        const SUPABASE_URL = "https://bhulammdoxhcsmeerhei.supabase.co";
+        // WARNING: Replace with your actual ANON PUBLIC KEY. 
+        // Do NOT use the service_role secret from the backend here.
+        const SUPABASE_KEY = "sb_publishable_-hvc5Oeq7uEFIeUv039xsw_vk8Vy8Jl"; 
+
+        const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        supabase
+        .channel("table-db-changes")
+        .on(
+            "postgres_changes",
+            {
+            event: "*",
+            schema: "public",
+            table: "requests"
+            },
+            payload => {
+                console.log("Realtime Request Update:", payload);
+                if(window.refreshData) window.refreshData();
+            }
+        )
+        .on(
+            "postgres_changes",
+            {
+            event: "*",
+            schema: "public",
+            table: "devices"
+            },
+            payload => {
+                 console.log("Realtime Device Update:", payload);
+                 if(window.refreshData) window.refreshData();
+            }
+        )
+        .subscribe();
+    </script>
+
     <script>
         let currentRequests = [];
         let currentDevices = [];
@@ -478,19 +608,29 @@
         let currentDeviceFilter = null;
 
         document.addEventListener('DOMContentLoaded', () => {
+            // Init Global Toggle
+            fetch('/api/global-auto').then(r => r.json()).then(d => {
+                document.getElementById('globalAutoToggle').checked = d.enabled;
+            });
+
             refreshData();
-            setInterval(refreshData, 2000);
+            setInterval(refreshData, 2000); // Enable polling for live updates
         });
 
         function switchTab(tabId) {
             document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-            document.getElementById(tabId).classList.add('active');
-
-            const navs = document.querySelectorAll('.nav-item');
-            if (tabId === 'logs') navs[0].classList.add('active');
-            if (tabId === 'devices') navs[1].classList.add('active');
-            if (tabId === 'errors') navs[2].classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(el => {
+                el.classList.remove('active');
+                if (el.getAttribute('onclick') && el.getAttribute('onclick').includes(tabId)) {
+                    el.classList.add('active');
+                }
+            });
+            const activeView = document.getElementById(tabId);
+            if (activeView) activeView.classList.add('active');
+            
+            if (tabId === 'settings') {
+                refreshSettings();
+            }
         }
 
         function refreshData() {
@@ -509,9 +649,59 @@
                 currentRequests = reqData || [];
                 currentDevices = devData.devices || [];
                 renderLogs();
+                renderOcrLogs();
+                renderGeminiLogs();
                 renderDevices();
                 renderErrors();
             });
+        }
+
+        function toggleGlobalAuto(enabled) {
+            fetch('/api/toggle-global-auto', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled })
+            });
+        }
+
+        function renderOcrLogs() {
+            const tbody = document.getElementById('ocrLogsTableBody');
+            if(!tbody) return;
+            let logs = [...currentRequests].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            if (logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 30px; color: var(--text-muted)">No data found</td></tr>';
+                return;
+            }
+            tbody.innerHTML = logs.map(req => {
+                const text = req.ocrText || "(No OCR Data)";
+                return `
+                <tr>
+                    <td style="font-family: monospace;">${req.id}</td>
+                    <td>${new Date(req.createdAt).toLocaleTimeString()}</td>
+                    <td style="white-space: pre-wrap; word-break: break-word; font-size: 0.85rem; max-width: 600px; color: #a1a1aa;">${text}</td>
+                </tr>
+                `;
+            }).join('');
+        }
+
+        function renderGeminiLogs() {
+            const tbody = document.getElementById('geminiLogsTableBody');
+            if(!tbody) return;
+            let logs = [...currentRequests].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            if (logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 30px; color: var(--text-muted)">No data found</td></tr>';
+                return;
+            }
+            tbody.innerHTML = logs.map(req => {
+                const answer = req.answer || "(Pending)";
+                return `
+                <tr>
+                    <td style="font-family: monospace;">${req.id}</td>
+                    <td>${new Date(req.createdAt).toLocaleTimeString()}</td>
+                    <td style="white-space: pre-wrap; word-break: break-word; font-size: 0.9rem; color: #10b981; font-weight: bold; max-width: 600px;">${answer}</td>
+                </tr>
+                `;
+            }).join('');
         }
 
         function renderLogs() {
@@ -541,6 +731,10 @@
 
                 const imgThumb = req.image ? `<img src="${req.image}" class="thumbnail" onclick="event.stopPropagation(); window.open('${req.image}', '_blank')">` : '<span style="color:#666">No img</span>';
 
+                // Plain text Answer (No Background Color requested)
+                // Using simple white/grey text
+                const answersHtml = `<span style="font-weight: bold; color: #fff; font-size: 1.1rem; font-family: monospace;">${req.answer || '-'}</span>`;
+
                 return `
                 <tr onclick="if('${req.status}' === 'pending') openModal('${req.id}')" style="cursor: ${req.status === 'pending' ? 'pointer' : 'default'}">
                     <td>${imgThumb}</td>
@@ -548,7 +742,7 @@
                     <td style="font-family: monospace;">${req.id}</td>
                     <td style="color: var(--accent);">${req.deviceId || 'unknown'}</td>
                     <td>${statusBadge}</td>
-                    <td style="font-weight: bold; color: var(--success); font-size: 1.1rem;">${req.answer || '-'}</td>
+                    <td>${answersHtml}</td>
                 </tr>
                 `;
             }).join('');
@@ -591,6 +785,57 @@
                     <td><button class="btn btn-primary btn-sm" onclick="openModal('${req.id}')">Retry / Manual</button></td>
                 </tr>
              `).join('');
+        }
+
+        // SETTINGS LOGIC
+        function refreshSettings() {
+            fetch('/api/keys-full').then(r => r.json()).then(data => {
+                const tbody = document.getElementById('settingsTableBody');
+                if (!data.keys || data.keys.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No keys found</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = data.keys.map(k => `
+                    <tr>
+                        <td style="font-family: monospace;">${k.id || '?'}</td>
+                        <td style="font-family: monospace;">...${k.key.slice(-8)}</td>
+                        <td><span class="badge bg-success">3 Tiers</span></td>
+                        <td><button class="btn btn-danger btn-sm" onclick="deleteKey('${k.id}')">Delete</button></td>
+                    </tr>
+                 `).join('');
+            });
+        }
+
+        function addApiKey() {
+            const val = document.getElementById('newApiKeyInput').value.trim();
+            if (!val) return alert("Enter a key");
+            fetch('/api/keys', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ apiKey: val })
+            }).then(() => {
+                document.getElementById('newApiKeyInput').value = '';
+                refreshSettings();
+            });
+        }
+
+        function deleteKey(id) {
+            if (!confirm("Remove this key?")) return;
+            fetch('/api/keys', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id })
+            }).then(() => refreshSettings());
+        }
+
+        function forceSync() {
+            if (!confirm("This will clear memory keys and reload exclusively from Supabase/Env to fix duplicates. Continue?")) return;
+            fetch('/api/keys/sync', { method: 'POST' })
+                .then(r => r.json())
+                .then(() => {
+                    alert("Keys Synchronized with Database");
+                    refreshSettings();
+                });
         }
 
         function toggleAuto(deviceId, enabled) {

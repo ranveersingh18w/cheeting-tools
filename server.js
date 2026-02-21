@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const bodyParser = require('body-parser');
+const archiver = require('archiver');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,7 +13,12 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
-app.use(express.static('public'));
+
+// Fix static path for Vercel: Vercel serverless functions run in a different CWD
+// but express.static works relative to where the process starts.
+// For Vercel, we might need to adjust or rely on Vercel's static file serving.
+// However, the current setup points to 'public' folder.
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Setup multer for file uploads
 const upload = multer({
@@ -22,7 +28,7 @@ const upload = multer({
 
 // In-memory storage for pending requests
 const pendingRequests = new Map();
-let requestId = 0;
+let requestId = Date.now(); // Use timestamp to avoid collisions on restart
 
 // ============= API ENDPOINTS =============
 
@@ -87,8 +93,8 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
       }
     }
 
-    requestId++;
-    const id = `req_${requestId}`;
+    // Increment specific counter for readability, but append to base
+    const id = `req_${requestId++}`;
 
     console.log(`✅ Request ${id} [${requestType}] from ${finalDeviceId}`);
 
@@ -122,7 +128,12 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
 
     // If it's a direct API call (no file, just body) OR device is auto -> PROCESS
     // But check Global Master Switch first!
-    if ((isDeviceAuto || !req.file || requestType === 'normal') && GLOBAL_AUTO_ANSWER) {
+
+    // UPDATED LOGIC: If Global Auto is ON, process ALL requests immediately.
+    // "directly send the request to ai"
+    // Also explicitly includes requestType === 'answer' (Auto Click) which was previously blocked if device wasn't auto.
+
+    if (GLOBAL_AUTO_ANSWER || isDeviceAuto) {
       processAI(id, res);
     } else {
       // Manual Review Mode (or Global Off)
@@ -142,6 +153,18 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
   }
 });
 
+app.get('/download/extension', (req, res) => {
+  const folderPath = path.join(__dirname, 'extension');
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', 'attachment; filename=cheeting-extension.zip');
+
+  const archive = archiver('zip', { zlib: { level: 9 } });
+  archive.on('error', (err) => res.status(500).send({ error: err.message }));
+  archive.pipe(res);
+  archive.directory(folderPath, false);
+  archive.finalize();
+});
+
 async function processAI(id, res) {
   const request = pendingRequests.get(id);
   if (!request || request.status === 'cancelled') return;
@@ -156,7 +179,7 @@ async function processAI(id, res) {
     }
     else if (request.type === 'answer') {
       // ANSWER Mode: Extract exact text (for auto-clicker)
-      prompt = `This is a multiple choice question. Analyze the image.
+      prompt = `This is a multiple choice question. Analyze the text/image.
         1. Identify the correct answer.
         2. Extract the EXACT text of that answer option.
         3. Return a valid JSON object:
@@ -165,7 +188,7 @@ async function processAI(id, res) {
     }
     else {
       // MCQ Mode (Default): Extract Letter (A/B/C/D) + Click Details
-      prompt = `This is a multiple choice question. Analyze the image and identify the correct answer.
+      prompt = `This is a multiple choice question. Analyze the text/image and identify the correct answer.
         Return a valid JSON object strictly following this format:
         {
           "answer": "A", 
@@ -176,6 +199,42 @@ async function processAI(id, res) {
         }
         Ensure "answer" is just the letter A, B, C, or D.
         Answer ONLY with the JSON.`;
+    }
+
+    request.status = 'processing';  // update local status
+
+    // === OCR SPACE INTEGRATION ===
+    let extractedText = "";
+    if (request.image) {
+      try {
+        console.log(`🔍 [OCR] Sending image to OCR.space for request ${id}...`);
+        const formData = new FormData();
+        formData.append('base64Image', request.image); // Includes the data:image/... prefix
+        formData.append('apikey', 'K84502246688957');
+        formData.append('OCREngine', '2'); // Engine 2 is recommended for this type of general content
+
+        const ocrResponse = await fetch('https://api.ocr.space/parse/image', {
+          method: 'POST',
+          body: formData
+        });
+        const ocrResult = await ocrResponse.json();
+
+        if (ocrResult && ocrResult.ParsedResults && ocrResult.ParsedResults.length > 0) {
+          extractedText = ocrResult.ParsedResults.map(p => p.ParsedText).join('\\n').trim();
+          console.log(`✅ [OCR] Extracted Text: ${extractedText.substring(0, 50)}...`);
+        } else {
+          console.log(`⚠️ [OCR] No text extracted or error:`, ocrResult);
+        }
+      } catch (err) {
+        console.error('❌ [OCR] API Error:', err.message);
+      }
+    }
+
+    if (extractedText) {
+      request.ocrText = extractedText;
+      prompt += `\n\n=== EXTRACTED TEXT FROM IMAGE (via OCR) ===\n${extractedText}\n==========================================\nPlease use the above text to determine the answer.`;
+    } else {
+      request.ocrText = "(No text extracted)";
     }
 
     // Prepare content parts
@@ -217,8 +276,8 @@ async function processAI(id, res) {
     }
 
     // For MCQ/Answer modes, we proceed to JSON parsing
-    console.log("🔍 [AI RAW] " + text.replace(/\n/g, ' '));
-    text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    console.log("🔍 [AI RAW] " + text.replace(/\\n/g, ' '));
+    text = text.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
     let parsedResult;
     try {
       parsedResult = JSON.parse(text);
@@ -228,6 +287,7 @@ async function processAI(id, res) {
       parsedResult = { answer: parseAnswerSimple(text), click_details: null };
     }
 
+
     const answer = parsedResult.answer || '?';
     console.log(`🏁 [FINAL] Answer determined: "${answer}"`);
 
@@ -236,7 +296,9 @@ async function processAI(id, res) {
     request.click_details = parsedResult.click_details;
     request.updatedAt = new Date();
 
-    supabase.updateRequest(id, { status: 'completed', answer: answer });
+    // Use a non-blocking floating promise for Supabase so UI is not delayed
+    supabase.updateRequest(id, { status: 'completed', answer: answer })
+      .catch(e => console.error("⚠️ Supabase Update Warning:", e.message));
 
     if (res) {
       res.json({
@@ -502,7 +564,8 @@ app.get('/api/all-requests', (req, res) => {
       answer: req.answer,
       createdAt: req.createdAt,
       updatedAt: req.updatedAt,
-      image: req.image // Include full image for thumbnail
+      image: req.image, // Include full image for thumbnail
+      ocrText: req.ocrText
     }));
 
   // Also include system status
@@ -644,11 +707,11 @@ app.get('/', (req, res) => {
 
 // ============= START SERVER =============
 
-app.listen(PORT, () => {
-  console.log(`\n✅ MCQ AI Server started on http://localhost:${PORT}`);
-  console.log(`📊 Dashboard: http://localhost:${PORT}`);
-  console.log(`🔌 API Base: http://localhost:${PORT}/api\n`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+  });
+}
 
 module.exports = app;
 

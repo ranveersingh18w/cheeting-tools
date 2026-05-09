@@ -153,10 +153,10 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
   }
 });
 
-app.get('/download/extension', (req, res) => {
+app.get('/extension.zip', (req, res) => {
   const folderPath = path.join(__dirname, 'extension');
   res.setHeader('Content-Type', 'application/zip');
-  res.setHeader('Content-Disposition', 'attachment; filename=cheeting-extension.zip');
+  res.setHeader('Content-Disposition', 'attachment; filename=mcq-ai-tools.zip');
 
   const archive = archiver('zip', { zlib: { level: 9 } });
   archive.on('error', (err) => res.status(500).send({ error: err.message }));

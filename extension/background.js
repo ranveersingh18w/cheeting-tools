@@ -178,7 +178,7 @@ async function uploadImage(dataUrl) {
 
         // UPDATED for Vercel Production
         // Using the newly deployed URL
-        const API_URL = 'https://cheatingtools.vercel.app';
+        const API_URL = 'https://mcq-ai-tools.vercel.app';
         // const API_URL = 'http://127.0.0.1:3000';
 
         console.log(`🚀 Sending POST request to ${API_URL}/api/upload-image`);
@@ -254,7 +254,7 @@ async function pollForAnswer(requestId, fontColor, fontSize) {
         attempts++;
         try {
             // console.log(`🔄 Polling attempt ${attempts}/${MAX_ATTEMPTS} for ${requestId}...`);
-            const API_URL = 'https://cheatingtools.vercel.app';
+            const API_URL = 'https://mcq-ai-tools.vercel.app';
             // const API_URL = 'http://127.0.0.1:3000';
             const response = await fetch(`${API_URL}/api/status/${requestId}`);
             const data = await response.json();

@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "MCQ Screenshot Sender",
+  "name": "MCQ AI Tools",
   "version": "1.0",
   "description": "Send MCQ screenshots to server for manual answer input",
   "permissions": [

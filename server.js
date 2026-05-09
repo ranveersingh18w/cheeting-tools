@@ -44,8 +44,8 @@ const deviceManager = new DeviceManager();
 const supabase = new SupabaseManager();
 
 // Add default key if provided in .env
-if (process.env.GENAI_API_KEY) {
-  processor.addKey(process.env.GENAI_API_KEY);
+if (process.env.NVIDIA_API_KEY) {
+  processor.addKey(process.env.NVIDIA_API_KEY);
 }
 
 /**

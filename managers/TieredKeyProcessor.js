@@ -1,60 +1,37 @@
-const { GoogleGenAI } = require("@google/genai");
+const OpenAI = require('openai');
 
 /**
- * Manages request distribution across multiple Gemini model tiers using the new @google/genai SDK.
+ * Manages request distribution across multiple API keys using NVIDIA NIM OpenAI SDK.
  */
 class RequestProcessor {
     constructor(apiKey) {
-        this.apiKey = apiKey;
-        this.genAI = new GoogleGenAI({ apiKey: apiKey });
+        // Fallback to process.env.NVIDIA_API_KEY if specific key isn't provided or is dummy
+        this.apiKey = apiKey || process.env.NVIDIA_API_KEY;
+        this.openai = new OpenAI({
+            apiKey: this.apiKey,
+            baseURL: 'https://integrate.api.nvidia.com/v1',
+        });
 
         this.tiers = [
             {
                 id: 'tier1',
-                modelName: 'gemini-3-flash-preview',
+                modelName: 'nvidia/nemotron-mini-4b-instruct',
                 maxConcurrent: 5,
                 cooldownMs: 1000,
                 activeRequests: 0,
                 cooldownUntil: 0,
-                name: 'Gemini 3.0 Flash Preview'
-            },
-            {
-                id: 'tier2',
-                modelName: 'gemini-2.5-flash',
-                maxConcurrent: 5,
-                cooldownMs: 60 * 1000,
-                activeRequests: 0,
-                cooldownUntil: 0,
-                name: 'Gemini 2.5 Flash'
-            },
-            {
-                id: 'tier3',
-                modelName: 'gemini-2.0-flash',
-                maxConcurrent: 2,
-                cooldownMs: 60 * 1000,
-                activeRequests: 0,
-                cooldownUntil: 0,
-                name: 'Gemini 2.0 Flash'
+                name: 'NVIDIA Nemotron Mini 4B'
             }
         ];
     }
 
-    /**
-     * Process a request using the best available model.
-     * @param {string} prompt The text prompt
-     * @param {Array} imageParts Array of image parts { inlineData: { data, mimeType } }
-     * @returns {Promise<string>} The text response
-     */
     async processRequest(prompt, imageParts) {
-        // Find checking order: Tier 1 -> Tier 2 -> Tier 3
-        for (const tier of this.tiers) {
-            if (this.isTierAvailable(tier)) {
-                return await this.executeWithTier(tier, prompt, imageParts);
-            }
+        const tier = this.tiers[0];
+        if (this.isTierAvailable(tier)) {
+            return await this.executeWithTier(tier, prompt, imageParts, false);
         }
-
-        console.log("⚠️ All tiers in this key are busy/cooling.");
-        return null; // Return null to signal the MultiKeyManager to try another API Key.
+        console.log("⚠️ NVIDIA Tier is busy/cooling.");
+        return null; 
     }
 
     isTierAvailable(tier) {
@@ -64,141 +41,22 @@ class RequestProcessor {
         return true;
     }
 
-    async executeWithTier(tier, prompt, imageParts) {
-        tier.activeRequests++;
-        console.log(`🚀 Sending request to ${tier.name} [Active: ${tier.activeRequests}]`);
-
-        try {
-            // Updated SDK Usage
-            // Convert imageParts (legacy format) to SDK format
-            // Legacy: { inlineData: { data: 'base64', mimeType: 'image/png' } }
-            // New SDK: { inlineData: { data: 'base64', mimeType: 'image/png' } } 
-
-            // Actually the new SDK structure is slightly different in `contents`.
-            // The prompt "This is... answer ONLY with JSON" is text.
-
-            // Construct contents array
-            const textPart = { text: prompt };
-            const mediaParts = imageParts.map(part => ({
-                inlineData: {
-                    data: part.inlineData.data,
-                    mimeType: part.inlineData.mimeType
-                }
-            }));
-
-            const contents = [...mediaParts, textPart];
-
-            const response = await this.genAI.models.generateContent({
-                model: tier.modelName,
-                contents: contents
-            });
-
-            // The SDK returns response.text() directly? Or response.text
-            // Based on user snippet: console.log(response.text);
-
-            // However, documentation says:
-            // const result = await model.generateContent(...)
-            // console.log(result.response.text())
-            // BUT user provided snippet:
-            // const response = await ai.models.generateContent({...});
-            // console.log(response.text());
-
-            // Let's trust the user snippet logic but verify against common patterns.
-            // If response.text is a function, call it. If property, return it.
-
-            let text = "";
-            if (typeof response.text === 'function') {
-                text = response.text();
-            } else if (response.text) {
-                text = response.text;
-            } else if (response.candidates && response.candidates[0] && response.candidates[0].content && response.candidates[0].content.parts) {
-                // Manual extraction worst case
-                text = response.candidates[0].content.parts.map(p => p.text).join('');
-            }
-
-            tier.activeRequests--;
-            return text;
-
-        } catch (error) {
-            tier.activeRequests--;
-            console.error(`❌ Error on ${tier.name}: ${error.message}`);
-
-            tier.cooldownUntil = Date.now() + tier.cooldownMs;
-            console.log(`❄️ Triggering ${tier.cooldownMs / 1000}s cooldown for ${tier.name}`);
-
-            const failIndex = this.tiers.indexOf(tier);
-            const nextTier = this.tiers[failIndex + 1];
-
-            if (nextTier) {
-                console.log(`🔄 Failing over to next tier: ${nextTier.name}`);
-                return await this.executeWithTier(nextTier, prompt, imageParts);
-            }
-
-            throw error;
-        }
-    }
-
-    // === NEW METHODS FOR MULTI-KEY ORCHESTRATION ===
-
-    /**
-     * Check if a specific tier is available on this key.
-     * @param {number} tierIndex 0, 1, or 2
-     * @returns {boolean}
-     */
-    isTierReady(tierIndex) {
-        if (tierIndex < 0 || tierIndex >= this.tiers.length) return false;
-        return this.isTierAvailable(this.tiers[tierIndex]);
-    }
-
-    /**
-     * Execute directly on a specific tier (orchestrated by MultiKeyManager).
-     * Returns result or THROWS if fails (so manager can try next key).
-     * @param {number} tierIndex 
-     * @param {*} prompt 
-     * @param {*} imageParts 
-     */
-    async processOnTier(tierIndex, prompt, imageParts) {
-        if (tierIndex < 0 || tierIndex >= this.tiers.length) throw new Error("Invalid Tier");
-        const tier = this.tiers[tierIndex];
-
-        // Direct execution without internal failover (Manager handles failover)
-        if (!this.isTierAvailable(tier)) throw new Error("Tier Busy");
-
-        return await this.executeWithTier(tier, prompt, imageParts, false);
-    }
-
-    // Modified executeWithTier to force disable internal failover during global orchestration
     async executeWithTier(tier, prompt, imageParts, allowInternalFailover = true) {
         tier.activeRequests++;
         console.log(`🚀 Sending request to ${tier.name} [Active: ${tier.activeRequests}]`);
 
         try {
-            const textPart = { text: prompt };
-            const mediaParts = imageParts.map(part => ({
-                inlineData: {
-                    data: part.inlineData.data,
-                    mimeType: part.inlineData.mimeType
-                }
-            }));
-
-            const contents = [...mediaParts, textPart];
-
-            const response = await this.genAI.models.generateContent({
+            // We use the prompt text directly since this is a text model
+            const completion = await this.openai.chat.completions.create({
                 model: tier.modelName,
-                contents: contents
+                messages: [{"role": "user", "content": prompt}],
+                temperature: 0.2,
+                top_p: 0.7,
+                max_tokens: 1024,
+                stream: false // Returning full text instead of streaming for API usage
             });
 
-            let text = "";
-            if (typeof response.text === 'function') {
-                text = response.text();
-            } else if (response.text) {
-                text = response.text;
-            } else if (response.candidates && response.candidates[0] && response.candidates[0].content && response.candidates[0].content.parts) {
-                text = response.candidates[0].content.parts.map(p => p.text).join('');
-            }
-            if (!text && response.candidates && response.candidates[0] && response.candidates[0].message && response.candidates[0].message.content) {
-                text = response.candidates[0].message.content.parts.map(p => p.text).join('');
-            }
+            const text = completion.choices[0]?.message?.content || "";
 
             tier.activeRequests--;
             return text;
@@ -210,18 +68,25 @@ class RequestProcessor {
             tier.cooldownUntil = Date.now() + tier.cooldownMs;
             console.log(`❄️ Triggering ${tier.cooldownMs / 1000}s cooldown for ${tier.name}`);
 
-            if (allowInternalFailover) {
-                const failIndex = this.tiers.indexOf(tier);
-                const nextTier = this.tiers[failIndex + 1];
-
-                if (nextTier) {
-                    console.log(`🔄 Failing over to next tier: ${nextTier.name}`);
-                    return await this.executeWithTier(nextTier, prompt, imageParts, true);
-                }
-            }
-
             throw error; // Throw so Manager catches it
         }
+    }
+
+    // === METHODS FOR MULTI-KEY ORCHESTRATION ===
+
+    isTierReady(tierIndex) {
+        // We only have 1 tier for NVIDIA right now
+        if (tierIndex !== 0) return false;
+        return this.isTierAvailable(this.tiers[0]);
+    }
+
+    async processOnTier(tierIndex, prompt, imageParts) {
+        if (tierIndex !== 0) throw new Error("Invalid Tier");
+        const tier = this.tiers[tierIndex];
+
+        if (!this.isTierAvailable(tier)) throw new Error("Tier Busy");
+
+        return await this.executeWithTier(tier, prompt, imageParts, false);
     }
 
     getRequestStatus() {

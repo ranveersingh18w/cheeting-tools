@@ -57,7 +57,7 @@ class MultiKeyManager {
         // 3. If all busy/error, try Tier 3 on ALL keys (Key1.T3 -> Key2.T3 ...)
         // 4. If all fail, throw error.
 
-        const TOTAL_TIERS = 3; // Assuming all keys have 3 tiers structure as defined in TieredKeyProcessor
+        const TOTAL_TIERS = 1; // NVIDIA has 1 tier
 
         for (let tierIdx = 0; tierIdx < TOTAL_TIERS; tierIdx++) {
             // Attempt this tier across all keys

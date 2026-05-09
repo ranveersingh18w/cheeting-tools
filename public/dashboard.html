@@ -31,7 +31,7 @@
             background: var(--bg-dark);
             color: var(--text);
             font-family: 'Inter', sans-serif;
-            display: flex;
+            display: block;
             height: 100vh;
             overflow: hidden;
         }
@@ -362,32 +362,21 @@
 </head>
 
 <body>
-    <!-- Sidebar -->
-    <div class="sidebar">
-        <div class="logo">⚡ MCQ/CMD</div>
-        <div class="nav-item active" onclick="switchTab('logs')">📜 Logs Feed</div>
-        <div class="nav-item" onclick="switchTab('ocr_logs')">👁️ OCR Space</div>
-        <div class="nav-item" onclick="switchTab('gemini_logs')">🧠 Gemini AI</div>
-        <div class="nav-item" onclick="switchTab('devices')">📱 Devices</div>
-        <div class="nav-item" onclick="switchTab('settings')">⚙️ Settings</div>
-    </div>
-
-    <!-- Main -->
-    <div class="main">
-        <!-- HEADER WITH GLOBAL AUTO -->
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 20px; align-items: center; gap: 10px;">
-            <span style="font-weight: 600; color: var(--text-muted);">Global Auto-AI:</span>
-            <label class="toggle-switch">
-                <input type="checkbox" id="globalAutoToggle" onchange="toggleGlobalAuto(this.checked)">
-                <span class="slider"></span>
-            </label>
-        </div>
+    <!-- Main (no sidebar - controlled by parent index.html) -->
+    <div class="main" style="padding-top: 10px; background: transparent; padding-left: 0; padding-right: 0;">
 
         <!-- LOGS VIEW -->
         <div id="logs" class="view active">
             <div class="header">
                 <div class="page-title">Live Request Logs</div>
-                <button class="btn btn-outline-danger btn-sm" onclick="clearLogs()">🗑️ Clear Logs</button>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-weight: 600; color: var(--text-muted); font-size: 0.85rem;">Global Auto-AI:</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="globalAutoToggle" onchange="toggleGlobalAuto(this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                    <button class="btn btn-outline-danger btn-sm" onclick="clearLogs()">🗑️ Clear Logs</button>
+                </div>
             </div>
             <div class="table-container">
                 <table>
@@ -608,13 +597,36 @@
         let currentDeviceFilter = null;
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Init Global Toggle
-            fetch('/api/global-auto').then(r => r.json()).then(d => {
-                document.getElementById('globalAutoToggle').checked = d.enabled;
-            });
+            // Apply dark theme overrides for iframe embedding
+            document.body.style.background = 'transparent';
+            document.body.style.display = 'block';
+
+            // Sync tab with parent via URL param
+            const urlParams = new URLSearchParams(window.location.search);
+            const tabParam = urlParams.get('tab');
+            if (tabParam) {
+                const idMap = {
+                    'MCQCMD': 'logs',
+                    'LogsFeed': 'logs',
+                    'OCRSpace': 'ocr_logs',
+                    'NVIDIAAI': 'gemini_logs',
+                    'Devices': 'devices',
+                    'Settings': 'settings'
+                };
+                switchTab(idMap[tabParam] || 'logs');
+            }
+
+            // Init Global Toggle state
+            fetch('/api/global-auto')
+                .then(r => r.json())
+                .then(d => {
+                    const toggle = document.getElementById('globalAutoToggle');
+                    if (toggle) toggle.checked = d.enabled;
+                })
+                .catch(() => {}); // silently fail if server not running
 
             refreshData();
-            setInterval(refreshData, 2000); // Enable polling for live updates
+            setInterval(refreshData, 3000); // Poll every 3s
         });
 
         function switchTab(tabId) {

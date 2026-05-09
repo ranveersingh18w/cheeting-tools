@@ -1,106 +1,590 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Cheeting Tools — Ultimate Exam Assistant</title>
-  <link rel="stylesheet" href="/brand.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MCQ.AI // TOTAL_CONTROL</title>
+  <!-- Tailwind via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Babel -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- React & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
   <style>
-      /* Quick inline override for layout */
-      .hero { text-align: center; }
-      .logo { width: 80px; height: 80px; margin-bottom: 20px; border-radius: 16px; box-shadow: 0 0 20px rgba(108,99,255,0.2); }
-      .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin-top: 60px; }
-      .btn-group { display: flex; gap: 15px; justify-content: center; margin-top: 40px; }
-      
-      .showcase-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 40px;
-          margin-top: 80px;
-          align-items: center;
-      }
-      @media (max-width: 768px) { .showcase-grid { grid-template-columns: 1fr; } }
+    body {
+      background-color: #050505;
+      color: white;
+      margin: 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+    @keyframes neon-pulse {
+      0%, 100% { box-shadow: 0 0 10px rgba(16, 185, 129, 0.2), 0 0 20px rgba(16, 185, 129, 0.1); }
+      50% { box-shadow: 0 0 25px rgba(16, 185, 129, 0.5), 0 0 50px rgba(16, 185, 129, 0.2); }
+    }
+    @keyframes cursor-blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+    
+    .animate-float { animation: float 4s ease-in-out infinite; }
+    .animate-neon { animation: neon-pulse 3s ease-in-out infinite; }
+    
+    .glass-morphism {
+      background: rgba(10, 10, 10, 0.8);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .cursor-line::after {
+      content: '|';
+      animation: cursor-blink 0.8s infinite;
+      color: #10b981;
+      margin-left: 4px;
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: all 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    .reveal.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
   </style>
 </head>
 <body>
-    <!-- Navbar -->
-    <nav class="container" style="display: flex; justify-content: space-between; align-items: center; padding: 20px 0;">
-        <div style="font-weight: 700; font-size: 20px; display: flex; align-items: center; gap: 10px;">
-            <img src="/hacker-logo.png" style="width: 24px; height: 24px;"> Cheeting Tools
-        </div>
-        <div style="display: flex; gap: 20px;">
-            <a href="/test.html" class="btn">Test Page</a>
-            <a href="/dashboard.html" class="btn">Dashboard</a>
-        </div>
-    </nav>
+  <div id="root"></div>
 
-  <header class="container hero">
-      <div class="hero-glow"></div>
-      <img src="/hacker-logo.png" class="logo" alt="Logo">
-      <h1>Crush Any Test<br>In Seconds</h1>
-      <p>The most advanced AI-powered answer tool. Capture any question, get instant answers, and automate clicks.
-      </p>
-      
-      <div class="btn-group">
-        <a class="btn primary" href="/download/extension">
-            <span>⬇️ Chrome Extension (.zip)</span>
-        </a>
-        <a class="btn" href="/getscreen.exe" style="border-color: #3b82f6; color: #3b82f6;">
-            <span>🖥️ Windows App (.exe)</span>
-        </a>
-      </div>
-      
-      <div style="margin-top: 50px;">
-          <img src="/extention.png" class="screenshot-img" alt="Extension Interface">
-      </div>
-    </header>
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
 
-  <main class="container">
-    <section class="showcase-grid">
-        <div>
-            <h2 style="font-size: 32px; margin-bottom: 20px;">Precision Control</h2>
-            <p style="font-size: 18px; color: #a1a1aa; line-height: 1.6;">
-                Configure your activation keys, capture modes, and AI confidence levels directly from the popup settings. 
-                Complete control at your fingertips.
-            </p>
-            <ul style="margin-top: 20px; color: #d4d4d8; list-style: none; padding: 0;">
-                <li style="margin-bottom: 10px;">✅ Shortcut or Triple-Click Activation</li>
-                <li style="margin-bottom: 10px;">✅ Fullscreen or Snippet Mode</li>
-                <li style="margin-bottom: 10px;">✅ Stealth "Ghost" Overlay</li>
-            </ul>
-        </div>
-        <div>
-            <img src="/setting.png" class="screenshot-img" style="transform: rotateY(-10deg);" alt="Settings UI">
-        </div>
-    </section>
+    const Icon = ({ name, size = 24, className = '' }) => (
+      <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>
+    );
 
-    <section id="features" class="features">
-        <div class="feature-card">
-            <div style="font-size: 32px; margin-bottom: 15px;">📸</div>
-            <h3>Instant Capture</h3>
-            <p>Triple-click anywhere to snap a question. The extension handles the rest securely and silently.</p>
-        </div>
-        <div class="feature-card">
-             <div style="font-size: 32px; margin-bottom: 15px;">🤖</div>
-            <h3>AI Powered</h3>
-            <p>Advanced Vision AI identifies correct answers with 99% accuracy across all subjects.</p>
-        </div>
-        <div class="feature-card">
-             <div style="font-size: 32px; margin-bottom: 15px;">👆</div>
-            <h3>Auto Clicker</h3>
-            <p>Enable "The Hand" to automatically click the correct option for you. Totally hands-free.</p>
-        </div>
-    </section>
+    const Typewriter = ({ phrases }) => {
+      const [index, setIndex] = useState(0);
+      const [subIndex, setSubIndex] = useState(0);
+      const [reverse, setReverse] = useState(false);
 
-    <section id="install" style="margin-top: 100px; text-align: center;">
-      <h2 style="font-size: 32px;">Ready to Start?</h2>
-      <p style="color: #a1a1aa; margin-bottom: 30px;">Setup takes less than 2 minutes.</p>
-      <a class="btn primary" href="/cheating-guide.html">View Installation Guide</a>
-    </section>
-  </main>
+      useEffect(() => {
+        if (subIndex === phrases[index].length + 1 && !reverse) {
+          const timeout = setTimeout(() => setReverse(true), 2000);
+          return () => clearTimeout(timeout);
+        }
+        if (subIndex === 0 && reverse) {
+          setReverse(false);
+          setIndex((prev) => (prev + 1) % phrases.length);
+          return;
+        }
+        const timeout = setTimeout(() => {
+          setSubIndex((prev) => prev + (reverse ? -1 : 1));
+        }, reverse ? 75 : 150);
+        return () => clearTimeout(timeout);
+      }, [subIndex, index, reverse, phrases]);
 
-  <footer class="container small" style="text-align: center; margin-top: 80px; color: #52525b;">
-      © 2026 Cheeting Tools. built for winners.
-  </footer>
+      return <span className="cursor-line">{phrases[index].substring(0, subIndex)}</span>;
+    };
+
+    const Reveal = ({ children, delay = 0 }) => {
+      const ref = useRef(null);
+      useEffect(() => {
+        const observer = new IntersectionObserver(([entry]) => {
+          if (entry.isIntersecting) {
+            setTimeout(() => {
+              if(ref.current) ref.current.classList.add('active');
+            }, delay);
+          }
+        }, { threshold: 0.1 });
+        if (ref.current) observer.observe(ref.current);
+        return () => observer.disconnect();
+      }, [delay]);
+      return <div ref={ref} className="reveal">{children}</div>;
+    };
+
+    const App = () => {
+      const [currentPage, setCurrentPage] = useState('landing');
+      const [user, setUser] = useState(null);
+
+      useEffect(() => {
+        if (window.lucide) {
+          lucide.createIcons();
+        }
+      }, [currentPage]);
+
+      const navigate = (page) => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setCurrentPage(page);
+      };
+
+      // ── CAPTURE MODES COMPONENT ──
+      const CaptureModes = () => {
+        const [active, setActive] = React.useState('fullscreen');
+        return (
+          <section className="py-32 px-6 relative">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_50%,rgba(16,185,129,0.06),transparent_60%)]"></div>
+            <div className="max-w-6xl mx-auto relative z-10">
+              <Reveal>
+                <div className="text-center mb-16">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/5 text-emerald-500 text-[10px] font-mono mb-4">CAPTURE_ENGINE // v2.0</div>
+                  <h2 className="text-5xl font-black italic uppercase tracking-tighter text-white mb-4">Choose Your <span className="text-emerald-500">Capture Mode</span></h2>
+                  <p className="text-slate-400 text-lg max-w-xl mx-auto">Pick exactly what gets sent to AI — a precise snip or the full screen.</p>
+                </div>
+              </Reveal>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {[
+                  { id: 'snippet', icon: 'crop', label: 'Snippet Mode', badge: 'PRECISION', color: 'from-violet-500 to-purple-600', desc: 'Draw a box around just the question. Sends only that cropped region to the AI — ultra-fast and minimal bandwidth.', features: ['Click & drag to select area', 'Zero background noise', 'Fastest AI response', 'Perfect for multi-question pages'] },
+                  { id: 'fullscreen', icon: 'monitor', label: 'Full Screen Mode', badge: 'FULL POWER', color: 'from-emerald-400 to-emerald-600', desc: 'Captures the entire visible screen. AI sees everything — ideal when the question spans the whole page.', features: ['One-click capture', 'Sees full context', 'Works on any layout', 'Auto-detects question zone'] }
+                ].map((m) => (
+                  <Reveal key={m.id}>
+                    <div onClick={() => setActive(m.id)} className={`cursor-pointer rounded-3xl p-8 border-2 transition-all duration-300 ${active === m.id ? 'border-emerald-500 bg-emerald-500/10 shadow-2xl shadow-emerald-500/20 -translate-y-2' : 'border-white/5 glass-morphism hover:border-emerald-500/30'}`}>
+                      <div className="flex items-center gap-4 mb-6">
+                        <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${m.color} flex items-center justify-center shadow-lg`}>
+                          <Icon name={m.icon} size={28} className="text-black" />
+                        </div>
+                        <div>
+                          <div className="text-[9px] font-mono text-emerald-500 tracking-[0.3em] mb-1">{m.badge}</div>
+                          <h3 className="text-2xl font-black uppercase italic tracking-tighter text-white">{m.label}</h3>
+                        </div>
+                        <div className={`ml-auto w-5 h-5 rounded-full border-2 flex items-center justify-center ${active === m.id ? 'border-emerald-500 bg-emerald-500' : 'border-slate-600'}`}>
+                          {active === m.id && <div className="w-2 h-2 rounded-full bg-black"></div>}
+                        </div>
+                      </div>
+                      <p className="text-slate-400 text-sm leading-relaxed mb-6">{m.desc}</p>
+                      <ul className="space-y-2">
+                        {m.features.map((f, i) => (
+                          <li key={i} className="flex items-center gap-3 text-sm text-slate-300">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></div>{f}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </Reveal>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+      };
+
+      // ── TRIGGER MODES COMPONENT ──
+      const TriggerModes = () => {
+        const [active, setActive] = React.useState(0);
+        const modes = [
+          { icon: 'mouse-pointer-click', label: 'Triple Click', tag: 'DEFAULT', desc: 'Triple-click anywhere on the page to instantly fire the AI capture. No setup needed — works out of the box on every exam platform.', tip: 'Click 3× fast anywhere', color: 'emerald' },
+          { icon: 'keyboard', label: 'Custom Shortcut', tag: 'POWER USER', desc: 'Bind any key combination you want. Set it once in the extension settings and trigger the AI silently without touching the mouse.', tip: 'e.g. Ctrl+Shift+Q', color: 'violet' },
+          { icon: 'hand', label: 'Manual Mode', tag: 'FULL CONTROL', desc: 'You decide when to capture. Open the extension popup, frame the question, and hit capture manually. Great for untimed reviews.', tip: 'Click the extension icon', color: 'amber' },
+        ];
+        const cols = ['emerald','violet','amber'];
+        const ring = { emerald: 'ring-emerald-500', violet: 'ring-violet-500', amber: 'ring-amber-500' };
+        const bg = { emerald: 'bg-emerald-500', violet: 'bg-violet-500', amber: 'bg-amber-500' };
+        const text = { emerald: 'text-emerald-400', violet: 'text-violet-400', amber: 'text-amber-400' };
+        const border = { emerald: 'border-emerald-500/40', violet: 'border-violet-500/40', amber: 'border-amber-500/40' };
+        return (
+          <section className="py-32 px-6 bg-black/60 relative">
+            <div className="max-w-6xl mx-auto">
+              <Reveal>
+                <div className="text-center mb-16">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/5 text-emerald-500 text-[10px] font-mono mb-4">TRIGGER_MODE // SELECT_ONE</div>
+                  <h2 className="text-5xl font-black italic uppercase tracking-tighter text-white mb-4">3 Ways to <span className="text-emerald-500">Fire the AI</span></h2>
+                  <p className="text-slate-400 text-lg max-w-xl mx-auto">Pick the trigger that matches your style. Switch anytime from the extension settings.</p>
+                </div>
+              </Reveal>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                {modes.map((m, i) => (
+                  <Reveal key={i} delay={i * 150}>
+                    <div onClick={() => setActive(i)} className={`cursor-pointer rounded-3xl p-8 border transition-all duration-300 ${active === i ? `ring-2 ${ring[m.color]} border-transparent bg-white/5 -translate-y-2 shadow-2xl` : 'border-white/5 glass-morphism hover:border-white/10'}`}>
+                      <div className={`w-12 h-12 rounded-xl ${bg[m.color]} flex items-center justify-center mb-5 shadow-lg`}>
+                        <Icon name={m.icon} size={22} className="text-black" />
+                      </div>
+                      <div className={`text-[9px] font-mono tracking-[0.3em] mb-2 ${text[m.color]}`}>{m.tag}</div>
+                      <h3 className="text-xl font-black uppercase italic tracking-tighter text-white mb-3">{m.label}</h3>
+                      <p className="text-slate-500 text-sm leading-relaxed mb-4">{m.desc}</p>
+                      <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border ${border[m.color]} text-[11px] font-mono ${text[m.color]}`}>
+                        <Icon name="terminal" size={12} />{m.tip}
+                      </div>
+                    </div>
+                  </Reveal>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+      };
+
+      // ── AUTO-CLICK SECTION COMPONENT ──
+      const AutoClickSection = () => {
+        const [on, setOn] = React.useState(true);
+        return (
+          <section className="py-32 px-6 relative">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_50%,rgba(16,185,129,0.07),transparent_60%)]"></div>
+            <div className="max-w-6xl mx-auto relative z-10">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+                <Reveal>
+                  <div>
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/5 text-emerald-500 text-[10px] font-mono mb-6">AUTOMATION // AUTO_CLICK_ENGINE</div>
+                    <h2 className="text-5xl font-black italic uppercase tracking-tighter text-white mb-6">Enable <span className="text-emerald-500">Auto-Click</span> Answer</h2>
+                    <p className="text-slate-400 text-lg leading-relaxed mb-8">Turn it on and the AI doesn't just find the answer — it <span className="text-white font-bold">clicks it for you</span>. Zero interaction needed after trigger.</p>
+                    <ul className="space-y-4 mb-10">
+                      {['AI identifies the exact answer option text', 'Locates matching element on the page', 'Clicks it automatically — no hands needed', 'Works on Canvas, Moodle & Blackboard'].map((t, i) => (
+                        <li key={i} className="flex items-start gap-3 text-slate-300">
+                          <div className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0 mt-0.5">
+                            <Icon name="check" size={12} className="text-emerald-400" />
+                          </div>
+                          <span className="text-sm leading-relaxed">{t}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="flex items-center gap-3 text-sm text-slate-500 font-mono">
+                      <Icon name="alert-triangle" size={14} className="text-amber-500" />
+                      Disable for manual review mode
+                    </div>
+                  </div>
+                </Reveal>
+                <Reveal delay={200}>
+                  <div className="glass-morphism rounded-3xl p-8 border border-emerald-500/10 shadow-2xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">MCQ AI</span>
+                      <Icon name="settings" size={16} className="text-slate-600" />
+                    </div>
+                    <div className="border-t border-white/5 pt-5 mb-4">
+                      <div className="text-[9px] font-mono text-emerald-500 tracking-[0.3em] mb-3 flex items-center gap-2"><Icon name="camera" size={10} /> CAPTURE</div>
+                      <div className="space-y-2">
+                        {['Snippet', 'Full Screen'].map((c, i) => (
+                          <div key={c} className={`flex items-center gap-3 px-4 py-3 rounded-xl ${i === 1 ? 'bg-emerald-500/10 border border-emerald-500/30' : 'border border-white/5'}`}>
+                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${i === 1 ? 'border-emerald-500 bg-emerald-500' : 'border-slate-600'}`}>
+                              {i === 1 && <div className="w-1.5 h-1.5 rounded-full bg-black"></div>}
+                            </div>
+                            <span className={`text-sm font-mono ${i === 1 ? 'text-white' : 'text-slate-500'}`}>{c}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="border-t border-white/5 pt-5">
+                      <div className="text-[9px] font-mono text-emerald-500 tracking-[0.3em] mb-3 flex items-center gap-2"><Icon name="cpu" size={10} /> AUTOMATION</div>
+                      <div className="flex items-center gap-4 px-4 py-3 rounded-xl border border-white/5">
+                        <div onClick={() => setOn(!on)} className={`relative w-10 h-5 rounded-full cursor-pointer transition-all duration-300 ${on ? 'bg-emerald-500' : 'bg-slate-700'}`}>
+                          <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all duration-300 ${on ? 'left-5' : 'left-0.5'}`}></div>
+                        </div>
+                        <div>
+                          <div className="text-sm text-white font-mono">Enable Auto-Click Answer</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">{on ? '✓ Active — AI will click for you' : 'Off — manual selection required'}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Reveal>
+              </div>
+            </div>
+          </section>
+        );
+      };
+
+      const LandingView = () => (
+        <div className="pt-24 min-h-screen text-white overflow-x-hidden relative z-10">
+          <div className="fixed inset-0 pointer-events-none z-0">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(16,185,129,0.08),transparent_70%)]"></div>
+          </div>
+          <section className="relative pt-20 pb-32 px-6 text-center z-10">
+            <div className="max-w-5xl mx-auto">
+              <Reveal>
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-500 text-[11px] font-mono mb-8 animate-neon">
+                  SYSTEM_READY // BYPASS_ACTIVE_V4.2
+                </div>
+              </Reveal>
+              <h1 className="text-6xl md:text-8xl font-black italic uppercase tracking-tighter mb-8 leading-[0.9]">
+                <Reveal>
+                  Triple Click & <br/> 
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-600">
+                    <Typewriter phrases={['BHOOM!', 'CHEET!', 'PASS!', 'RELAX!']} />
+                  </span>
+                </Reveal>
+              </h1>
+              <Reveal delay={200}>
+                <p className="text-xl text-slate-400 max-w-2xl mx-auto mb-12 font-medium leading-relaxed">
+                  Don't stress the test. Just sit, relax, and watch the AI submit your exam for you. The ultimate ghost assistant for every student.
+                </p>
+              </Reveal>
+              <Reveal delay={400}>
+                <div className="flex flex-wrap justify-center gap-6 mb-24 z-50 relative pointer-events-auto">
+                  <a href="/extension.zip" download className="group relative px-10 py-5 bg-emerald-500 text-black font-black uppercase tracking-widest text-sm transition-all hover:scale-105 active:scale-95 rounded-sm overflow-hidden flex items-center gap-3">
+                      <Icon name="download" size={20} className="group-hover:translate-y-1 transition-transform" /> 
+                      Get Extension
+                  </a>
+                  <button 
+                    onClick={() => navigate('guide')}
+                    className="px-10 py-5 border-2 border-emerald-500/30 text-emerald-500 font-black uppercase tracking-widest text-sm hover:bg-emerald-500/10 hover:border-emerald-500 transition-all rounded-sm"
+                  >
+                    Setup Guide
+                  </button>
+                </div>
+              </Reveal>
+
+              {/* Images displayed on homepage */}
+              <Reveal delay={600}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-6xl mx-auto text-left perspective-1000 mb-24 z-50">
+                  <div className="group relative hover:-translate-y-2 transition-transform duration-700 glass-morphism p-2 rounded-2xl">
+                     <div className="absolute -inset-1 bg-emerald-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                     <img src="/setting.png" alt="Settings preview" className="rounded-xl w-full h-auto relative z-10" />
+                  </div>
+                  <div className="group relative hover:-translate-y-2 transition-transform duration-700 glass-morphism p-2 rounded-2xl">
+                     <div className="absolute -inset-1 bg-emerald-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                     <img src="/extention.png" alt="Extension preview" className="rounded-xl w-full h-auto relative z-10" />
+                  </div>
+                </div>
+              </Reveal>
+
+            </div>
+          </section>
+
+          <CaptureModes />
+          <TriggerModes />
+          <AutoClickSection />
+
+          <section className="py-32 px-6 relative overflow-hidden bg-black/50">
+            <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12 relative z-10">
+              {[
+                { icon: "zap", title: "Triple Click & Bhoom", desc: "Just triple-click and bhoom, the answer is displayed instantly on your screen. Total stealth." },
+                { icon: "mouse-pointer-2", title: "Auto-Click Magic", desc: "Answers are clicked automatically. Just let the AI handle the exam." },
+                { icon: "shield-alert", title: "Exam Destroyer", desc: "Totally hidden, zero risk. Built specifically for Canvas, Moodle, and Blackboard." }
+              ].map((f, i) => (
+                <Reveal key={i} delay={i * 200}>
+                  <div className="group p-12 glass-morphism rounded-3xl hover:border-emerald-500/50 transition-all duration-500 hover:-translate-y-4">
+                    <div className="w-20 h-20 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center justify-center mb-10 group-hover:bg-emerald-500 group-hover:text-black transition-all duration-500 shadow-xl">
+                      <Icon name={f.icon} size={40} />
+                    </div>
+                    <h3 className="text-3xl font-black italic uppercase mb-6 tracking-tighter group-hover:text-emerald-400 transition-colors">{f.title}</h3>
+                    <p className="text-slate-400 text-lg leading-relaxed">{f.desc}</p>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+          </section>
+        </div>
+      );
+
+      const GlobalHeader = () => (
+        <nav className="fixed top-0 left-0 w-full z-[100] border-b border-emerald-500/10 bg-black/90 backdrop-blur-2xl px-8 py-5 transition-all">
+          <div className="max-w-[1500px] mx-auto flex justify-between items-center">
+            <div className="flex items-center gap-8">
+              <div onClick={() => navigate('landing')} className="flex items-center gap-3 cursor-pointer group">
+                <div className="p-2 bg-emerald-500 rounded-xl group-hover:rotate-12 transition-transform">
+                  <Icon name="scan-line" className="text-black" size={24} />
+                </div>
+                <span className="font-mono font-black tracking-tighter text-2xl italic uppercase text-white">
+                  MCQ<span className="text-emerald-500">.AI</span>
+                </span>
+              </div>
+              {currentPage !== 'landing' && (
+                <button 
+                  onClick={() => navigate('landing')}
+                  className="flex items-center gap-2 px-4 py-1.5 text-[10px] font-mono text-emerald-500/70 hover:text-emerald-400 border border-emerald-500/20 rounded bg-emerald-500/5 transition-all uppercase"
+                >
+                  <Icon name="arrow-left" size={14} /> Back_Home
+                </button>
+              )}
+            </div>
+            <div className="flex gap-6 items-center">
+              <button 
+                onClick={() => navigate('guide')}
+                className={`hidden lg:flex items-center gap-2 px-6 py-2.5 text-[10px] font-mono border transition-all uppercase tracking-widest ${currentPage === 'guide' ? 'bg-emerald-500 text-black border-emerald-500 shadow-lg shadow-emerald-500/30' : 'text-slate-400 border-white/10 hover:border-emerald-500/50'}`}
+              >
+                Installation_Portal
+              </button>
+              <button 
+                onClick={() => user ? navigate('dashboard') : navigate('login')}
+                className="px-8 py-2.5 bg-emerald-500/10 border border-emerald-500 text-emerald-500 font-black text-xs hover:bg-emerald-500 hover:text-black transition-all uppercase tracking-widest shadow-xl shadow-emerald-500/10 z-50 pointer-events-auto"
+              >
+                {user ? 'View_Dashboard' : 'Admin_Auth'}
+              </button>
+            </div>
+          </div>
+        </nav>
+      );
+
+      const GuideView = () => (
+        <div className="pt-40 pb-32 px-8 min-h-screen bg-[#050505] text-white">
+          <div className="max-w-4xl mx-auto">
+            <Reveal>
+              <header className="mb-24 border-b border-emerald-500/10 pb-12">
+                <h1 className="text-7xl font-black italic uppercase tracking-tighter mb-6 text-emerald-500 leading-none">Installation</h1>
+                <p className="text-slate-400 text-2xl">Deploy the payload in 3 simple steps.</p>
+              </header>
+            </Reveal>
+            <div className="space-y-32">
+              {[
+                { step: "01", title: "Unzip Payload", desc: "Download the encrypted extension.zip and extract all files to a named folder anywhere on your computer.", icon: "download" },
+                { step: "02", title: "Chrome Inject", desc: "1. Open Chrome and go to `chrome://extensions/` \n2. Toggle 'Developer mode' ON in the top right corner. \n3. Click 'Load unpacked' and select the folder you extracted in step 1.", icon: "chrome" },
+                { step: "03", title: "Activate & Win", desc: "Pin the extension, click the icon to view the setup, triple click during your exam, and watch the magic happen.", icon: "sparkles" }
+              ].map((item, i) => (
+                <Reveal key={i} delay={i * 200}>
+                  <div className="flex flex-col md:flex-row gap-12 items-center group">
+                    <div className="w-24 h-24 bg-emerald-500 text-black font-black text-5xl flex items-center justify-center shrink-0 rounded-3xl group-hover:rotate-6 transition-transform">
+                      {item.step}
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-4xl font-black uppercase italic mb-6 group-hover:text-emerald-400 transition-colors">{item.title}</h3>
+                      <p className="text-slate-400 text-xl leading-relaxed whitespace-pre-wrap">{item.desc}</p>
+                    </div>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+
+      const DashboardView = () => {
+        const [activeTab, setActiveTab] = useState('MCQCMD');
+        
+        const tabs = [
+          { id: '⚡ MCQ/CMD', vId: 'MCQCMD', icon: 'terminal' },
+          { id: '📜 Logs Feed', vId: 'LogsFeed', icon: 'activity' },
+          { id: '👁️ OCR Space', vId: 'OCRSpace', icon: 'eye' },
+          { id: '🧠 NVIDIA AI', vId: 'NVIDIAAI', icon: 'cpu' },
+          { id: '📱 Devices', vId: 'Devices', icon: 'monitor' },
+          { id: '⚙️ Settings', vId: 'Settings', icon: 'settings' }
+        ];
+
+        return (
+          <div className="min-h-screen text-slate-300 flex flex-col md:flex-row pt-[72px]">
+            <aside className="w-full md:w-72 border-r border-emerald-500/10 bg-black/80 backdrop-blur-xl p-6 flex flex-col z-10">
+              <div className="mt-4 space-y-2">
+                {tabs.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.vId)}
+                    className={`w-full flex items-center gap-4 px-5 py-4 text-[10px] font-mono uppercase tracking-[0.2em] transition-all rounded-xl ${
+                      activeTab === item.vId
+                        ? 'bg-emerald-500 text-black font-black shadow-lg shadow-emerald-500/30 translate-x-2'
+                        : 'text-slate-500 hover:text-white hover:bg-emerald-500/10'
+                    }`}
+                  >
+                    <Icon name={item.icon} size={18} />
+                    {item.id}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => {
+                  setUser(null);
+                  navigate('landing');
+                }}
+                className="mt-auto flex items-center gap-4 px-5 py-6 text-[10px] font-mono text-red-500/60 hover:text-red-500 transition-all uppercase tracking-widest border-t border-white/5 hover:bg-red-500/5 rounded-xl"
+              >
+                <Icon name="log-out" size={18} /> Terminate_Session
+              </button>
+            </aside>
+            <main className="flex-1 p-12 overflow-y-auto relative z-10">
+              <header className="flex flex-col lg:flex-row justify-between items-center mb-12 p-8 rounded-3xl border border-emerald-500/10">
+                <div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-3 h-3 bg-emerald-500 rounded-full animate-ping"></div>
+                    <h2 className="text-3xl font-black uppercase italic tracking-tighter text-white">Neural Cluster: <span className="text-emerald-500">Live</span></h2>
+                  </div>
+                  <p className="text-[10px] font-mono text-slate-500 uppercase tracking-[0.5em] italic">Real-Time Data Injection Enabled</p>
+                </div>
+                <div className="flex gap-6 mt-8 lg:mt-0">
+                  <div className="px-8 py-4 bg-black/60 border border-emerald-500/20 rounded-2xl shadow-xl">
+                    <span className="text-[9px] block text-slate-500 font-mono uppercase mb-1">Global Requests</span>
+                    <span className="text-emerald-400 font-mono text-3xl font-black italic">4.1k+</span>
+                  </div>
+                  <div className="px-8 py-4 bg-black/60 border border-emerald-500/20 rounded-2xl shadow-xl">
+                    <span className="text-[9px] block text-slate-500 font-mono uppercase mb-1">AI Handshake</span>
+                    <span className="text-emerald-500 font-mono text-3xl font-black italic">100%</span>
+                  </div>
+                </div>
+              </header>
+
+              <div className="w-full h-full min-h-[600px] rounded-lg overflow-hidden relative">
+                 <div className="absolute inset-0 z-0 bg-black/50 flex items-center justify-center pointer-events-none">
+                     <span className="text-emerald-500/30 animate-pulse font-mono tracking-widest">LOADING SECURE IFRAME...</span>
+                 </div>
+                 <iframe 
+                    id="dashboard-iframe"
+                    src={`/dashboard.html?tab=${activeTab}`} 
+                    title="MCQ Dashboard Data" 
+                    className="w-full h-full min-h-[600px] border-0 relative z-10 opacity-90 transition-opacity"
+                 ></iframe>
+              </div>
+            </main>
+          </div>
+        );
+      };
+
+      const LoginView = () => {
+        const [username, setUsername] = useState('');
+        const [password, setPassword] = useState('');
+        const [error, setError] = useState('');
+
+        const handleLogin = () => {
+          if (username === 'admin' && password === 'admin123') {
+            setUser({ name: 'Admin', role: 'admin' });
+            navigate('dashboard');
+          } else if (username && password) {
+             setUser({ name: username, role: 'user' });
+             navigate('dashboard');
+          } else {
+            setError('ACCESS DENIED');
+          }
+        };
+
+        return (
+          <div className="min-h-screen flex items-center justify-center px-6 pt-24 z-10 relative">
+            <Reveal>
+              <div className="w-full max-w-lg p-12 glass-morphism rounded-3xl shadow-2xl animate-neon">
+                <div className="text-center mb-12">
+                  <div className="w-20 h-20 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <Icon name="terminal" className="text-emerald-500" size={40} />
+                  </div>
+                  <h2 className="text-4xl font-black uppercase italic tracking-tighter text-white">System Access</h2>
+                  {error && <p className="text-[12px] font-mono text-red-500 mt-4 tracking-[0.2em] animate-pulse">{error}</p>}
+                </div>
+                <div className="space-y-8">
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-mono text-slate-500 uppercase tracking-widest px-1">Operator_ID</label>
+                    <input type="text" value={username} onChange={e=>setUsername(e.target.value)} placeholder="ROOT_ADMIN" className="w-full bg-black/60 border border-emerald-500/20 p-5 text-sm focus:border-emerald-500 outline-none text-emerald-400 font-mono rounded-xl transition-all" />
+                  </div>
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-mono text-slate-500 uppercase tracking-widest px-1">Access_Cipher</label>
+                    <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="********" className="w-full bg-black/60 border border-emerald-500/20 p-5 text-sm focus:border-emerald-500 outline-none text-emerald-400 font-mono rounded-xl transition-all" />
+                  </div>
+                  <button 
+                    onClick={handleLogin}
+                    className="w-full py-6 bg-emerald-600 text-white font-black uppercase tracking-widest text-sm hover:bg-emerald-500 transition-all shadow-2xl hover:shadow-emerald-500/40 rounded-xl active:scale-95"
+                  >
+                    Initialize_Auth
+                  </button>
+                </div>
+              </div>
+            </Reveal>
+          </div>
+        );
+      };
+
+      return (
+        <React.Fragment>
+          <GlobalHeader />
+          {currentPage === 'landing' && <LandingView />}
+          {currentPage === 'guide' && <GuideView />}
+          {currentPage === 'login' && <LoginView />}
+          {currentPage === 'dashboard' && <DashboardView />}
+        </React.Fragment>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
 </body>
 </html>

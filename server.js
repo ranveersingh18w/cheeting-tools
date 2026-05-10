@@ -85,8 +85,30 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
       requestType = 'answer';
     }
 
-    const { deviceId } = req.body;
+    const { deviceId, username, password } = req.body;
     const finalDeviceId = deviceId || 'unknown_device';
+
+    // === AUTHENTICATION & POINTS CHECK ===
+    let user = null;
+
+    if (!username || !password) {
+      user = await supabase.getOrCreateFreeUser(finalDeviceId);
+      if (!user) {
+        return res.status(500).json({ error: 'Failed to initialize free tier. Please try again or login.' });
+      }
+    } else {
+      user = await supabase.authenticateUser(username, password);
+      if (!user) {
+        return res.status(401).json({ error: 'Invalid username or password.' });
+      }
+    }
+
+    if (user.points <= 0) {
+      return res.status(403).json({ error: 'Insufficient points. Please login to an account with more points.' });
+    }
+
+    // Deduct points
+    await supabase.deductPoint(user.id);
 
     // === 2. REGISTER DEVICE & SYNC ===
     const dev = deviceManager.registerDevice(finalDeviceId);
@@ -108,6 +130,7 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
     const newRequest = {
       id: id,
       deviceId: finalDeviceId,
+      userId: user.id,
       status: 'pending',
       // If we have an image, store string for UI. If text-only, store null or placeholder.
       image: imageBase64 ? `data:${mimeType};base64,${imageBase64}` : null,

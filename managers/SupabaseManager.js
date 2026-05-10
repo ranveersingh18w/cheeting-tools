@@ -44,21 +44,106 @@ class SupabaseManager {
     async createRequest(reqData) {
         if (!this.enabled) return;
         try {
+            const payload = {
+                id: reqData.id,
+                device_id: reqData.deviceId,
+                status: reqData.status,
+                image_data: reqData.image || reqData.shortImage, // Save image!
+                mime_type: reqData.mimeType,
+                answer: reqData.answer,
+                created_at: reqData.createdAt
+            };
+            if (reqData.userId) {
+                payload.user_id = reqData.userId;
+            }
+            if (reqData.requestText) {
+                payload.request_text = reqData.requestText;
+            }
+
             const { error } = await this.supabase
                 .from('requests')
-                .insert({
-                    id: reqData.id,
-                    device_id: reqData.deviceId,
-                    status: reqData.status,
-                    image_data: reqData.image || reqData.shortImage, // Save image!
-                    mime_type: reqData.mimeType,
-                    answer: reqData.answer,
-                    created_at: reqData.createdAt
-                });
+                .insert(payload);
 
             if (error) console.error("Supabase Req Create Error:", error.message);
         } catch (e) {
             console.error("Supabase Error:", e);
+        }
+    }
+
+    async getOrCreateFreeUser(deviceId) {
+        if (!this.enabled) return null;
+        try {
+            const { data, error } = await this.supabase
+                .from('users')
+                .select('*')
+                .eq('username', deviceId)
+                .single();
+
+            if (data) {
+                return data;
+            }
+
+            const { data: newUser, error: insertError } = await this.supabase
+                .from('users')
+                .insert({
+                    username: deviceId,
+                    password_hash: 'free_tier',
+                    points: 5,
+                    is_admin: false
+                })
+                .select()
+                .single();
+
+            if (insertError) {
+                console.error("Create Free User Error:", insertError);
+                return null;
+            }
+            return newUser;
+        } catch (e) {
+            console.error("Free User Error:", e);
+            return null;
+        }
+    }
+
+    async authenticateUser(username, password) {
+        if (!this.enabled) return null;
+        try {
+            const { data, error } = await this.supabase
+                .from('users')
+                .select('*')
+                .eq('username', username)
+                .single();
+
+            if (error || !data) return null;
+            
+            // Simple plain text comparison as requested
+            if (data.password_hash === password) {
+                return data;
+            }
+            return null;
+        } catch (e) {
+            console.error("Auth Error:", e);
+            return null;
+        }
+    }
+
+    async deductPoint(userId) {
+        if (!this.enabled) return;
+        try {
+            const { data: user } = await this.supabase
+                .from('users')
+                .select('points')
+                .eq('id', userId)
+                .single();
+                
+            if (user && user.points > 0) {
+                await this.supabase
+                    .from('users')
+                    .update({ points: user.points - 1 })
+                    .eq('id', userId);
+            }
+        } catch (e) {
+            console.error("Deduct Point Error:", e);
         }
     }
 

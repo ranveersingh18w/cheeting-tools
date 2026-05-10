@@ -1,0 +1,165 @@
+/* Color Variables */
+:root {
+    --text-primary: #E8F0FE;
+    --text-muted: #6B7A99;
+    --glitch-accent: #A855F7;
+    --border-glow: rgba(0, 255, 178, 0.3);
+    --neon-primary: #00FFB2;
+}
+
+/* Force dark bg globally avoiding white out bugs */
+html, body {
+    background-color: #080A0F !important;
+    background: #080A0F;
+    color: #E8F0FE;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'DM Sans', sans-serif;
+}
+
+/* Ensure standard reset links are applied since it was missing color resets */
+a {
+    color: var(--text-primary);
+    text-decoration: none;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Share Tech Mono', monospace;
+    text-transform: uppercase;
+}
+
+/* Base Components Structure */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 5%;
+}
+
+.glitch-text {
+    position: relative;
+    display: inline-block;
+    color: var(--text-primary);
+}
+
+.glitch-text::before,
+.glitch-text::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    color: inherit;
+}
+
+.glitch-text::before {
+    animation: glitch-anim-2 3s infinite linear alternate-reverse;
+    clip-path: inset(0 0 0 0);
+}
+
+.glitch-text::after {
+    animation: glitch-anim 2s infinite linear alternate-reverse;
+    clip-path: inset(0 0 0 0);
+}
+
+@keyframes glitch-anim {
+    0% {
+        transform: translate(0);
+    }
+    20% {
+        transform: translate(-5px, 5px);
+    }
+    40% {
+        transform: translate(5px, -5px);
+    }
+    60% {
+        transform: translate(-5px, -5px);
+    }
+    80% {
+        transform: translate(5px, 5px);
+    }
+    100% {
+        transform: translate(0);
+    }
+}
+
+@keyframes glitch-anim-2 {
+    0% {
+        transform: translate(0);
+    }
+    20% {
+        transform: translate(5px, -5px);
+    }
+    40% {
+        transform: translate(-5px, 5px);
+    }
+    60% {
+        transform: translate(5px, 5px);
+    }
+    80% {
+        transform: translate(-5px, -5px);
+    }
+    100% {
+        transform: translate(0);
+    }
+}
+
+.btn-primary {
+    background: transparent;
+    color: var(--neon-primary);
+    border: 1px solid var(--neon-primary);
+    padding: 15px 30px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.1rem;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
+    box-shadow: 0 0 10px rgba(0, 255, 178, 0.15);
+}
+
+.btn-primary:hover {
+    background: var(--neon-primary);
+    color: #080A0F;
+    box-shadow: 0 0 20px var(--neon-primary);
+}
+
+.btn-secondary {
+    background: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--text-muted);
+    padding: 15px 30px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.1rem;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+    border-color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Navigation Links */
+.nav-links a {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-family: 'Share Tech Mono', monospace;
+    margin-left: 2rem;
+    transition: color 0.2s;
+}

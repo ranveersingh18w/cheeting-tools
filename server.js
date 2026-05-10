@@ -1,5 +1,11 @@
 const express = require('express');
 const cors = require('cors');
+const OpenAI = require('openai');
+
+const openai = new OpenAI({
+  apiKey: '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',
+  baseURL: 'https://integrate.api.nvidia.com/v1',
+});
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -245,8 +251,18 @@ async function processAI(id, res) {
       });
     }
 
-    // Execute AI
-    let text = await processor.processRequest(prompt, imageParts);
+    // Execute AI using NVIDIA API
+    console.log(`🧠 [AI] Sending request to NVIDIA...`);
+    const completion = await openai.chat.completions.create({
+      model: "nvidia/nemotron-mini-4b-instruct",
+      messages: [{"role":"user","content": prompt}],
+      temperature: 0.2,
+      top_p: 0.7,
+      max_tokens: 1024,
+      stream: false
+    });
+    
+    let text = completion.choices[0]?.message?.content || "";
 
     // Check cancellation
     if (request.status === 'cancelled') {
